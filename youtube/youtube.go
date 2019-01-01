@@ -38,7 +38,7 @@ func GetMetadata(url string) (*ytdl.VideoInfo, error) {
 }
 
 // Download a youtube video
-func Download(writer io.Writer, videoInfo *ytdl.VideoInfo) error {
+func downloadVideo(writer io.Writer, videoInfo *ytdl.VideoInfo) error {
 	if len(videoInfo.Formats) == 0 {
 		return errors.New("No available video formats")
 	}
@@ -69,7 +69,7 @@ func DownloadAudio(url string) ([]byte, *ytdl.VideoInfo, error) {
 	defer videoFile.Close()
 	defer os.Remove(fmt.Sprintf("%s.mp4", videoInfo.ID))
 
-	err = Download(videoFile, videoInfo)
+	err = downloadVideo(videoFile, videoInfo)
 	if err != nil {
 		return nil, nil, err
 	}

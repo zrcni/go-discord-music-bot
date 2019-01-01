@@ -17,7 +17,7 @@ func repeatCommand(message *discordgo.MessageCreate) {
 		return
 	}
 
-	msg, err := session.ChannelMessageSend(message.ChannelID, str[1])
+	msg, err := state.session.ChannelMessageSend(message.ChannelID, str[1])
 	if err != nil {
 		log.Printf("Could not send a message to channel %v: %v", message.ChannelID, err)
 		return
@@ -42,25 +42,25 @@ func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 		return
 	}
 
-	voice.connection = vc
+	state.audio.SetConnection(vc)
 }
 
 func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	updateListeningStatus(session, "")
 
-	if voice.connection == nil {
+	if !state.audio.IsConnected() {
 		return
 	}
 
-	channelID := voice.connection.ChannelID
+	channelID := state.audio.connection.ChannelID
 
-	err := voice.connection.Disconnect()
+	err := state.audio.connection.Disconnect()
 	if err != nil {
-		log.Printf("Could not disconnect from voice channel %v: %v", channelID, err)
-		voice.connection = nil
+		log.Printf("Could not disconnect from audio channel %v: %v", channelID, err)
+		state.audio.SetConnection(nil)
 		return
 	}
-	log.Printf("Disconnected from voice channel %v", channelID)
+	log.Printf("Disconnected from audio channel %v", channelID)
 }
 
 func playlistsCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
@@ -87,10 +87,12 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 
 	searchTerm := msg[1]
 
-	if voice.connection == nil {
-		log.Printf("Voice connection doesn't exist")
+	if !state.audio.IsConnected() {
+		log.Printf("Audio connection doesn't exist")
 		return
 	}
+
+	updateListeningStatus(session, "Preparing song")
 
 	data, videoInfo, err := youtube.DownloadAudio(searchTerm)
 	if err != nil {
@@ -114,10 +116,10 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	defer encodeSession.Cleanup()
 
 	updateListeningStatus(session, videoInfo.Title)
-	voice.connection.Speaking(true)
+	state.audio.connection.Speaking(true)
 
 	done := make(chan error)
-	dca.NewStream(encodeSession, voice.connection, done)
+	dca.NewStream(encodeSession, state.audio.connection, done)
 
 	err = <-done
 	if err != nil {
@@ -126,17 +128,5 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	}
 
 	updateListeningStatus(session, "Waiting")
-	voice.connection.Speaking(false)
-}
-
-func joinChannel(session *discordgo.Session, guildID string, channelID string) (*discordgo.VoiceConnection, error) {
-	voiceConnection, err := session.ChannelVoiceJoin(guildID, channelID, false, true)
-	if err != nil {
-		log.Printf("Join voice channel: %v", err)
-		return nil, err
-	}
-
-	log.Printf("Joined channel: %v", channelID)
-
-	return voiceConnection, nil
+	state.audio.connection.Speaking(false)
 }

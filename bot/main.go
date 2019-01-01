@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -10,28 +9,7 @@ import (
 	"github.com/zrcni/go-discord-music-bot/config"
 )
 
-// TODO: move these to context maybe
-var (
-	voice   Voice
-	session *discordgo.Session
-	botID   string
-)
-
-// Voice struct stores discordgo voice connection.
-// Implements io.Writer to be able to write to the connection.
-type Voice struct {
-	connection *discordgo.VoiceConnection
-}
-
-func (v Voice) Write(data []byte) (n int, err error) {
-	if len(data) == 0 {
-		return len(data), errors.New("Voice.Write data length: 0")
-	}
-
-	v.connection.OpusSend <- data
-
-	return len(data), nil
-}
+var state State
 
 func init() {
 	config.SetupEnv()
@@ -39,44 +17,53 @@ func init() {
 
 // Start discord bot
 func Start() {
+	state = State{}
+
 	sess, err := discordgo.New(fmt.Sprintf("Bot %s", config.BotToken))
 	if err != nil {
 		log.Printf("Create session: %v", err)
 		return
 	}
 
-	session = sess
+	state.SetSession(sess)
 
-	user, err := session.User("@me")
+	user, err := state.session.User("@me")
 	if err != nil {
 		log.Printf("Create user: %v", err)
 		return
 	}
 
-	botID = user.ID
+	state.SetBotID(user.ID)
 
-	session.AddHandler(commandHandler)
+	state.session.AddHandler(readyHandler)
+	state.session.AddHandler(commandHandler)
 
-	session.AddHandler(func(session *discordgo.Session, ready *discordgo.Ready) {
-		updateListeningStatus(session, "")
-		guilds := session.State.Guilds
-		fmt.Printf("%s has started on %d server(s)\n", user.Username, len(guilds))
-	})
-
-	if err := session.Open(); err != nil {
+	if err := state.session.Open(); err != nil {
 		log.Printf("Error opening connection to Discord: %v", err)
 	}
 
-	defer session.Close()
+	defer state.session.Close()
 
 	// Keep process running indefinitely, because channel
 	// keeps waiting for message that will never be sent
 	<-make(chan struct{})
 }
 
+func readyHandler(session *discordgo.Session, ready *discordgo.Ready) {
+	user, err := session.User("@me")
+	if err != nil {
+		log.Printf("readyHandler user: %v", err)
+	}
+	guilds := session.State.Guilds
+
+	fmt.Printf("%s has started on %d server(s)\n", user.Username, len(guilds))
+
+	updateListeningStatus(session, "")
+}
+
 func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate) {
 	user := message.Author
-	if user.ID == botID || user.Bot {
+	if user.ID == state.botID || user.Bot {
 		return
 	}
 
@@ -118,8 +105,8 @@ func messageHasCommand(msgContent string, command string) bool {
 	return strings.HasPrefix(msgContent, commandWithPrefix)
 }
 
-func updateListeningStatus(discord *discordgo.Session, status string) {
-	if err := discord.UpdateListeningStatus(status); err != nil {
+func updateListeningStatus(session *discordgo.Session, status string) {
+	if err := session.UpdateListeningStatus(status); err != nil {
 		fmt.Printf("Could not set listening status: %v", err)
 	}
 }
@@ -132,4 +119,16 @@ func filterVoiceChannels(channels []*discordgo.Channel) []discordgo.Channel {
 		}
 	}
 	return voiceChannels
+}
+
+func joinChannel(session *discordgo.Session, guildID string, channelID string) (*discordgo.VoiceConnection, error) {
+	voiceConnection, err := session.ChannelVoiceJoin(guildID, channelID, false, true)
+	if err != nil {
+		log.Printf("Join voice channel: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Joined channel: %v", channelID)
+
+	return voiceConnection, nil
 }
