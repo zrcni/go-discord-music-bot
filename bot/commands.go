@@ -1,11 +1,12 @@
 package bot
 
 import (
+	"bytes"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jonas747/dca"
 	"github.com/zrcni/go-discord-music-bot/spotify"
 	"github.com/zrcni/go-discord-music-bot/youtube"
 )
@@ -44,18 +45,6 @@ func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 	voice.connection = vc
 }
 
-func joinChannel(session *discordgo.Session, guildID string, channelID string) (*discordgo.VoiceConnection, error) {
-	voiceConnection, err := session.ChannelVoiceJoin(guildID, channelID, false, true)
-	if err != nil {
-		log.Printf("Join voice channel: %v", err)
-		return nil, err
-	}
-
-	log.Printf("Joined channel: %v", channelID)
-
-	return voiceConnection, nil
-}
-
 func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	updateListeningStatus(session, "")
 
@@ -92,7 +81,7 @@ func playlistsCommand(message *discordgo.MessageCreate, session *discordgo.Sessi
 
 func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	msg := strings.Split(message.Content, "play ")
-	if len(msg) != 2 {
+	if len(msg) != 2 || msg[1] == "" {
 		return
 	}
 
@@ -103,10 +92,51 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 		return
 	}
 
+	data, videoInfo, err := youtube.DownloadAudio(searchTerm)
+	if err != nil {
+		log.Printf("error while downloading youtube audio: %v", err)
+		return
+	}
+
+	reader := bytes.NewReader(data)
+
+	options := dca.StdEncodeOptions
+	options.RawOutput = true
+	options.Bitrate = 128
+	options.BufferedFrames = 500
+	options.Application = "lowdelay"
+
+	encodeSession, err := dca.EncodeMem(reader, options)
+	if err != nil {
+		log.Printf("dca.EncodeMem: %v", err)
+		return
+	}
+	defer encodeSession.Cleanup()
+
+	updateListeningStatus(session, videoInfo.Title)
 	voice.connection.Speaking(true)
 
-	youtube.Download(voice, searchTerm)
+	done := make(chan error)
+	dca.NewStream(encodeSession, voice.connection, done)
 
-	time.Sleep(250 * time.Millisecond)
+	err = <-done
+	if err != nil {
+		log.Printf("NewStream: %v", err)
+		return
+	}
+
+	updateListeningStatus(session, "Waiting")
 	voice.connection.Speaking(false)
+}
+
+func joinChannel(session *discordgo.Session, guildID string, channelID string) (*discordgo.VoiceConnection, error) {
+	voiceConnection, err := session.ChannelVoiceJoin(guildID, channelID, false, true)
+	if err != nil {
+		log.Printf("Join voice channel: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Joined channel: %v", channelID)
+
+	return voiceConnection, nil
 }

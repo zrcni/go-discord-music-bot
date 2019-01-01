@@ -10,24 +10,27 @@ import (
 	"github.com/zrcni/go-discord-music-bot/config"
 )
 
+// TODO: move these to context maybe
 var (
 	voice   Voice
 	session *discordgo.Session
 	botID   string
 )
 
+// Voice struct stores discordgo voice connection.
+// Implements io.Writer to be able to write to the connection.
 type Voice struct {
 	connection *discordgo.VoiceConnection
 }
 
 func (v Voice) Write(data []byte) (n int, err error) {
-	v.connection.OpusSend <- data
-
-	if len(data) > 0 {
-		return len(data), nil
+	if len(data) == 0 {
+		return len(data), errors.New("Voice.Write data length: 0")
 	}
 
-	return len(data), errors.New("Voice.Write data length: 0")
+	v.connection.OpusSend <- data
+
+	return len(data), nil
 }
 
 func init() {
@@ -74,40 +77,45 @@ func Start() {
 func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate) {
 	user := message.Author
 	if user.ID == botID || user.Bot {
-		//Do nothing because the bot is talking
-		// TODO: queue
 		return
 	}
+
+	// TODO queue messages
 
 	if !strings.HasPrefix(message.Content, commandPrefix) {
 		return
 	}
 
 	// Repeat string after !repeat command
-	if strings.Contains(message.Content, "repeat ") {
+	if messageHasCommand(message.Content, "repeat ") {
 		repeatCommand(message)
 		return
 	}
 
-	if strings.Contains(message.Content, "start") {
+	if messageHasCommand(message.Content, "start") {
 		startCommand(message, session)
 		return
 	}
 
-	if strings.Contains(message.Content, "stop") {
+	if messageHasCommand(message.Content, "stop") {
 		stopCommand(message, session)
 		return
 	}
 
-	if strings.Contains(message.Content, "playlist ") {
+	if messageHasCommand(message.Content, "playlist ") {
 		playlistsCommand(message, session)
 		return
 	}
 
-	if strings.Contains(message.Content, "play ") {
+	if messageHasCommand(message.Content, "play ") {
 		playCommand(message, session)
 		return
 	}
+}
+
+func messageHasCommand(msgContent string, command string) bool {
+	commandWithPrefix := fmt.Sprintf("%s%s", commandPrefix, command)
+	return strings.HasPrefix(msgContent, commandWithPrefix)
 }
 
 func updateListeningStatus(discord *discordgo.Session, status string) {
