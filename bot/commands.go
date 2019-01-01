@@ -1,13 +1,13 @@
 package bot
 
 import (
-	"bytes"
+	"fmt"
 	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jonas747/dca"
 	"github.com/zrcni/go-discord-music-bot/spotify"
+	"github.com/zrcni/go-discord-music-bot/videoaudio"
 	"github.com/zrcni/go-discord-music-bot/youtube"
 )
 
@@ -26,7 +26,7 @@ func repeatCommand(message *discordgo.MessageCreate) {
 }
 
 func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	updateListeningStatus(session, "Waiting")
+	state.UpdateListeningStatus("")
 
 	guild := session.State.Guilds[0]
 
@@ -46,7 +46,7 @@ func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 }
 
 func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	updateListeningStatus(session, "")
+	state.UpdateListeningStatus("")
 
 	if !state.audio.IsConnected() {
 		return
@@ -92,7 +92,7 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 		return
 	}
 
-	updateListeningStatus(session, "Preparing song")
+	state.UpdateListeningStatus("Preparing song")
 
 	data, videoInfo, err := youtube.DownloadAudio(searchTerm)
 	if err != nil {
@@ -100,33 +100,49 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 		return
 	}
 
-	reader := bytes.NewReader(data)
-
-	options := dca.StdEncodeOptions
-	options.RawOutput = true
-	options.Bitrate = 128
-	options.BufferedFrames = 500
-	options.Application = "lowdelay"
-
-	encodeSession, err := dca.EncodeMem(reader, options)
+	encodeSession, err := videoaudio.EncodeAudioToDCA(data)
 	if err != nil {
-		log.Printf("dca.EncodeMem: %v", err)
+		log.Printf("EncodeAudioToDCA: %v", err)
 		return
 	}
 	defer encodeSession.Cleanup()
 
-	updateListeningStatus(session, videoInfo.Title)
+	state.UpdateListeningStatus(videoInfo.Title)
+	state.SetNowPlaying(videoInfo.Title)
 	state.audio.connection.Speaking(true)
 
-	done := make(chan error)
-	dca.NewStream(encodeSession, state.audio.connection, done)
-
-	err = <-done
+	err = state.audio.Stream(encodeSession)
 	if err != nil {
-		log.Printf("NewStream: %v", err)
+		log.Printf("CreateStream: %v", err)
 		return
 	}
 
-	updateListeningStatus(session, "Waiting")
+	state.UpdateListeningStatus("")
 	state.audio.connection.Speaking(false)
+}
+
+func pauseCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
+	if !state.audio.IsStreaming() {
+		return
+	}
+	if state.audio.stream.Paused() {
+		return
+	}
+	state.audio.stream.SetPaused(true)
+
+	nowPlaying := state.GetNowPlaying()
+	state.UpdateListeningStatus(fmt.Sprintf("%s %s", pausedPrefix, nowPlaying))
+}
+
+func continueCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
+	if !state.audio.IsStreaming() {
+		return
+	}
+	if !state.audio.stream.Paused() {
+		return
+	}
+
+	state.audio.stream.SetPaused(false)
+	nowPlaying := state.GetNowPlaying()
+	state.UpdateListeningStatus(nowPlaying)
 }

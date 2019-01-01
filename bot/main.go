@@ -58,7 +58,7 @@ func readyHandler(session *discordgo.Session, ready *discordgo.Ready) {
 
 	fmt.Printf("%s has started on %d server(s)\n", user.Username, len(guilds))
 
-	updateListeningStatus(session, "")
+	state.UpdateListeningStatus("")
 }
 
 func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate) {
@@ -98,17 +98,21 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		playCommand(message, session)
 		return
 	}
+
+	if messageHasCommand(message.Content, "pause") {
+		pauseCommand(message, session)
+		return
+	}
+
+	if messageHasCommand(message.Content, "continue") {
+		continueCommand(message, session)
+		return
+	}
 }
 
 func messageHasCommand(msgContent string, command string) bool {
 	commandWithPrefix := fmt.Sprintf("%s%s", commandPrefix, command)
 	return strings.HasPrefix(msgContent, commandWithPrefix)
-}
-
-func updateListeningStatus(session *discordgo.Session, status string) {
-	if err := session.UpdateListeningStatus(status); err != nil {
-		fmt.Printf("Could not set listening status: %v", err)
-	}
 }
 
 func filterVoiceChannels(channels []*discordgo.Channel) []discordgo.Channel {
