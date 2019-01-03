@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"strings"
 
@@ -35,9 +36,15 @@ func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 		log.Printf("Could not get guild channels: %v", err)
 		return
 	}
-	voiceChannels := filterVoiceChannels(channels)
+	voiceChannels := filterChannels(channels, discordgo.ChannelTypeGuildVoice)
 
-	vc, err := joinChannel(session, guild.ID, voiceChannels[0].ID)
+	voiceChannel := voiceChannels[0].ID
+
+	if voiceChannel == state.audio.GetChannelID() {
+		return
+	}
+
+	vc, err := joinChannel(session, guild.ID, voiceChannel)
 	if err != nil {
 		return
 	}
@@ -52,7 +59,11 @@ func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 		return
 	}
 
-	channelID := state.audio.connection.ChannelID
+	channelID := state.audio.GetChannelID()
+
+	if state.audio.IsStreaming() {
+		state.audio.stream.SetPaused(true)
+	}
 
 	err := state.audio.connection.Disconnect()
 	if err != nil {
@@ -60,6 +71,7 @@ func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 		state.audio.SetConnection(nil)
 		return
 	}
+
 	log.Printf("Disconnected from audio channel %v", channelID)
 }
 
@@ -94,24 +106,28 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 
 	state.UpdateListeningStatus("Preparing song")
 
-	data, videoInfo, err := youtube.DownloadAudio(searchTerm)
+	track, err := youtube.Get(searchTerm)
 	if err != nil {
 		log.Printf("error while downloading youtube audio: %v", err)
 		return
 	}
 
-	encodeSession, err := videoaudio.EncodeAudioToDCA(data)
+	encodeSession, err := videoaudio.EncodeAudioToDCA(track.Data)
 	if err != nil {
 		log.Printf("EncodeAudioToDCA: %v", err)
 		return
 	}
 	defer encodeSession.Cleanup()
 
-	state.UpdateListeningStatus(videoInfo.Title)
-	state.SetNowPlaying(videoInfo.Title)
+	state.UpdateListeningStatus(track.Info.Title)
+	state.SetNowPlaying(track.Info.Title)
 	state.audio.connection.Speaking(true)
 
 	err = state.audio.Stream(encodeSession)
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
+		log.Print("end of file, continuing")
+		err = nil
+	}
 	if err != nil {
 		log.Printf("CreateStream: %v", err)
 		return

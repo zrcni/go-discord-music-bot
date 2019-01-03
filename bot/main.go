@@ -73,66 +73,26 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		return
 	}
 
-	// Repeat string after !repeat command
-	if messageHasCommand(message.Content, "repeat ") {
+	switch {
+	case messageHasCommand(message.Content, "repeat "):
 		repeatCommand(message)
-		return
-	}
 
-	if messageHasCommand(message.Content, "start") {
+	case messageHasCommand(message.Content, "start"):
 		startCommand(message, session)
-		return
-	}
 
-	if messageHasCommand(message.Content, "stop") {
+	case messageHasCommand(message.Content, "stop"):
 		stopCommand(message, session)
-		return
-	}
 
-	if messageHasCommand(message.Content, "playlist ") {
+	case messageHasCommand(message.Content, "playlist "):
 		playlistsCommand(message, session)
-		return
-	}
 
-	if messageHasCommand(message.Content, "play ") {
+	case messageHasCommand(message.Content, "play "):
 		playCommand(message, session)
-		return
-	}
 
-	if messageHasCommand(message.Content, "pause") {
+	case messageHasCommand(message.Content, "pause"):
 		pauseCommand(message, session)
-		return
-	}
 
-	if messageHasCommand(message.Content, "continue") {
+	case messageHasCommand(message.Content, "continue"):
 		continueCommand(message, session)
-		return
 	}
-}
-
-func messageHasCommand(msgContent string, command string) bool {
-	commandWithPrefix := fmt.Sprintf("%s%s", commandPrefix, command)
-	return strings.HasPrefix(msgContent, commandWithPrefix)
-}
-
-func filterVoiceChannels(channels []*discordgo.Channel) []discordgo.Channel {
-	var voiceChannels []discordgo.Channel
-	for _, channel := range channels {
-		if discordgo.ChannelTypeGuildVoice == channel.Type {
-			voiceChannels = append(voiceChannels, *channel)
-		}
-	}
-	return voiceChannels
-}
-
-func joinChannel(session *discordgo.Session, guildID string, channelID string) (*discordgo.VoiceConnection, error) {
-	voiceConnection, err := session.ChannelVoiceJoin(guildID, channelID, false, true)
-	if err != nil {
-		log.Printf("Join voice channel: %v", err)
-		return nil, err
-	}
-
-	log.Printf("Joined channel: %v", channelID)
-
-	return voiceConnection, nil
 }

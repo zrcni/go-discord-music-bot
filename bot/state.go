@@ -49,6 +49,14 @@ type Audio struct {
 	stream     *dca.StreamingSession
 }
 
+// GetChannelID gets voice connection channel ID
+func (a *Audio) GetChannelID() string {
+	if a.connection == nil {
+		return ""
+	}
+	return a.connection.ChannelID
+}
+
 // IsConnected gets discord voice connection status as boolean
 func (a *Audio) IsConnected() bool {
 	return a.connection != nil

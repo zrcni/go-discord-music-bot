@@ -15,6 +15,12 @@ import (
 
 const youtubeURLMatcher = "^.*(?:(?:youtu\\.be\\/|v\\/|vi\\/|u\\/\\w\\/|embed\\/)|(?:(?:watch)?\\?v(?:i)?=|\\&v(?:i)?=))([^#\\&\\?]*).*"
 
+// Audio stores data and info
+type Audio struct {
+	Data []byte
+	Info *ytdl.VideoInfo
+}
+
 func getVideoID(url string) string {
 	re := regexp.MustCompile(youtubeURLMatcher)
 	match := re.FindStringSubmatch(url)
@@ -53,38 +59,41 @@ func downloadVideo(writer io.Writer, videoInfo *ytdl.VideoInfo) error {
 	return nil
 }
 
-// DownloadAudio get audio from a youtube video
-func DownloadAudio(url string) ([]byte, *ytdl.VideoInfo, error) {
+// Get downloads video from youtube and transcodes it to audio
+func Get(url string) (*Audio, error) {
 	videoInfo, err := GetMetadata(url)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	videoFilenameWithExtension := fmt.Sprintf("%s.mp4", videoInfo.ID)
 
 	videoFile, err := os.Create(videoFilenameWithExtension)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer videoFile.Close()
 	defer os.Remove(fmt.Sprintf("%s.mp4", videoInfo.ID))
 
 	err = downloadVideo(videoFile, videoInfo)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	err = videoaudio.TranscodeVideoToAudio(videoInfo.ID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer os.Remove(fmt.Sprintf("%s.mp3", videoInfo.ID))
 
 	audioFilenameWithExtension := fmt.Sprintf("%s.mp3", videoInfo.ID)
 	data, err := ioutil.ReadFile(audioFilenameWithExtension)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return data, videoInfo, nil
+	return &Audio{
+		Data: data,
+		Info: videoInfo,
+	}, nil
 }
