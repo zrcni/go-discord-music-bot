@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/zrcni/go-discord-music-bot/spotify"
-	"github.com/zrcni/go-discord-music-bot/videoaudio"
 	"github.com/zrcni/go-discord-music-bot/youtube"
 )
 
@@ -100,41 +100,34 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	searchTerm := msg[1]
 
 	if !state.audio.IsConnected() {
-		log.Printf("Audio connection doesn't exist")
+		log.Print(errors.New("Audio connection doesn't exist"))
 		return
 	}
 
 	state.UpdateListeningStatus("Preparing song")
+	defer state.UpdateListeningStatus("")
 
 	track, err := youtube.Get(searchTerm)
 	if err != nil {
-		log.Printf("error while downloading youtube audio: %v", err)
+		log.Print(err)
 		return
 	}
-
-	encodeSession, err := videoaudio.EncodeAudioToDCA(track.Data)
-	if err != nil {
-		log.Printf("EncodeAudioToDCA: %v", err)
-		return
-	}
-	defer encodeSession.Cleanup()
 
 	state.UpdateListeningStatus(track.Info.Title)
-	state.SetNowPlaying(track.Info.Title)
-	state.audio.connection.Speaking(true)
+	state.SetNowPlaying(track)
 
-	err = state.audio.Stream(encodeSession)
+	state.audio.connection.Speaking(true)
+	defer state.audio.connection.Speaking(false)
+
+	err = state.audio.Stream(track.Audio)
 	if err == io.EOF || err == io.ErrUnexpectedEOF {
 		log.Print("end of file, continuing")
 		err = nil
 	}
 	if err != nil {
-		log.Printf("CreateStream: %v", err)
+		log.Print(err)
 		return
 	}
-
-	state.UpdateListeningStatus("")
-	state.audio.connection.Speaking(false)
 }
 
 func pauseCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
@@ -147,7 +140,7 @@ func pauseCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 	state.audio.stream.SetPaused(true)
 
 	nowPlaying := state.GetNowPlaying()
-	state.UpdateListeningStatus(fmt.Sprintf("%s %s", pausedPrefix, nowPlaying))
+	state.UpdateListeningStatus(fmt.Sprintf("%s %s", pausedPrefix, nowPlaying.Info.Title))
 }
 
 func continueCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
@@ -160,5 +153,5 @@ func continueCommand(message *discordgo.MessageCreate, session *discordgo.Sessio
 
 	state.audio.stream.SetPaused(false)
 	nowPlaying := state.GetNowPlaying()
-	state.UpdateListeningStatus(nowPlaying)
+	state.UpdateListeningStatus(nowPlaying.Info.Title)
 }

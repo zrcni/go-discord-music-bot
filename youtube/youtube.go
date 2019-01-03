@@ -1,25 +1,18 @@
 package youtube
 
 import (
+	"bytes"
 	"errors"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
-	"os"
 	"regexp"
 
 	"github.com/rylio/ytdl"
+	"github.com/zrcni/go-discord-music-bot/player"
 	"github.com/zrcni/go-discord-music-bot/videoaudio"
 )
 
 const youtubeURLMatcher = "^.*(?:(?:youtu\\.be\\/|v\\/|vi\\/|u\\/\\w\\/|embed\\/)|(?:(?:watch)?\\?v(?:i)?=|\\&v(?:i)?=))([^#\\&\\?]*).*"
-
-// Audio stores data and info
-type Audio struct {
-	Data []byte
-	Info *ytdl.VideoInfo
-}
 
 func getVideoID(url string) string {
 	re := regexp.MustCompile(youtubeURLMatcher)
@@ -60,40 +53,41 @@ func downloadVideo(writer io.Writer, videoInfo *ytdl.VideoInfo) error {
 }
 
 // Get downloads video from youtube and transcodes it to audio
-func Get(url string) (*Audio, error) {
+func Get(url string) (*player.Track, error) {
 	videoInfo, err := GetMetadata(url)
 	if err != nil {
 		return nil, err
 	}
 
-	videoFilenameWithExtension := fmt.Sprintf("%s.mp4", videoInfo.ID)
+	videoData := &bytes.Buffer{}
 
-	videoFile, err := os.Create(videoFilenameWithExtension)
-	if err != nil {
-		return nil, err
-	}
-	defer videoFile.Close()
-	defer os.Remove(fmt.Sprintf("%s.mp4", videoInfo.ID))
-
-	err = downloadVideo(videoFile, videoInfo)
+	err = downloadVideo(videoData, videoInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	err = videoaudio.TranscodeVideoToAudio(videoInfo.ID)
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(fmt.Sprintf("%s.mp3", videoInfo.ID))
-
-	audioFilenameWithExtension := fmt.Sprintf("%s.mp3", videoInfo.ID)
-	data, err := ioutil.ReadFile(audioFilenameWithExtension)
+	// Transcoding mp4 to mp3 before encoding the result to DCA,
+	// I have no idea what I'm doing so the sound quality is shit with mp4->DCA
+	audioData := &bytes.Buffer{}
+	err = videoaudio.TranscodeVideoToAudio(videoData, videoInfo.ID, audioData)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Audio{
-		Data: data,
-		Info: videoInfo,
+	encodeSession, err := videoaudio.EncodeAudioToDCA(audioData)
+	if err != nil {
+		return nil, err
+	}
+	// defer os.Remove(fmt.Sprintf("%s.mp3", videoInfo.ID))
+
+	// audioFilenameWithExtension := fmt.Sprintf("%s.mp3", videoInfo.ID)
+	// data, err := ioutil.ReadFile(audioFilenameWithExtension)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	return &player.Track{
+		Audio: encodeSession,
+		Info:  videoInfo,
 	}, nil
 }

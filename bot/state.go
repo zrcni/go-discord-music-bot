@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
+	"github.com/zrcni/go-discord-music-bot/player"
 )
 
 // State manages the state of the bot
@@ -13,7 +14,7 @@ type State struct {
 	audio      Audio
 	session    *discordgo.Session
 	botID      string
-	nowPlaying string
+	nowPlaying *player.Track
 }
 
 // SetBotID sets botID
@@ -34,12 +35,12 @@ func (st *State) UpdateListeningStatus(status string) {
 }
 
 // SetNowPlaying gets local listening status
-func (st *State) SetNowPlaying(nowPlaying string) {
+func (st *State) SetNowPlaying(nowPlaying *player.Track) {
 	st.nowPlaying = nowPlaying
 }
 
 // GetNowPlaying gets local listening status
-func (st *State) GetNowPlaying() string {
+func (st *State) GetNowPlaying() *player.Track {
 	return st.nowPlaying
 }
 

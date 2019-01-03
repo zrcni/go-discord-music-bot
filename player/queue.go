@@ -37,8 +37,7 @@ func Queue(message *discordgo.MessageCreate) {
 	}
 }
 
-// Shift queue. Removes first element from queue and returns it
-func Shift() *discordgo.MessageCreate {
-	message := messageQueue.shift()
-	return message
-}
+// ProcessQueue processes the next track in queue
+// func (q MessageQueue) ProcessQueue() {
+// q.shift()
+// }
