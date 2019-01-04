@@ -53,17 +53,17 @@ func downloadVideo(writer io.Writer, videoInfo *ytdl.VideoInfo) error {
 }
 
 // Get downloads video from youtube and transcodes it to audio
-func Get(url string) (*player.Track, error) {
+func Get(url string) (player.Track, error) {
 	videoInfo, err := GetMetadata(url)
 	if err != nil {
-		return nil, err
+		return player.Track{}, err
 	}
 
 	videoData := &bytes.Buffer{}
 
 	err = downloadVideo(videoData, videoInfo)
 	if err != nil {
-		return nil, err
+		return player.Track{}, err
 	}
 
 	// Transcoding mp4 to mp3 before encoding the result to DCA,
@@ -71,12 +71,12 @@ func Get(url string) (*player.Track, error) {
 	audioData := &bytes.Buffer{}
 	err = videoaudio.TranscodeVideoToAudio(videoData, videoInfo.ID, audioData)
 	if err != nil {
-		return nil, err
+		return player.Track{}, err
 	}
 
 	encodeSession, err := videoaudio.EncodeAudioToDCA(audioData)
 	if err != nil {
-		return nil, err
+		return player.Track{}, err
 	}
 	// defer os.Remove(fmt.Sprintf("%s.mp3", videoInfo.ID))
 
@@ -86,7 +86,7 @@ func Get(url string) (*player.Track, error) {
 	// 	return nil, err
 	// }
 
-	return &player.Track{
+	return player.Track{
 		Audio: encodeSession,
 		Info:  videoInfo,
 	}, nil

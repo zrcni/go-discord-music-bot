@@ -2,12 +2,11 @@ package bot
 
 import (
 	"errors"
-	"fmt"
-	"io"
 	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/zrcni/go-discord-music-bot/player"
 	"github.com/zrcni/go-discord-music-bot/spotify"
 	"github.com/zrcni/go-discord-music-bot/youtube"
 )
@@ -18,7 +17,7 @@ func repeatCommand(message *discordgo.MessageCreate) {
 		return
 	}
 
-	msg, err := state.session.ChannelMessageSend(message.ChannelID, str[1])
+	msg, err := bot.session.ChannelMessageSend(message.ChannelID, str[1])
 	if err != nil {
 		log.Printf("Could not send a message to channel %v: %v", message.ChannelID, err)
 		return
@@ -27,7 +26,7 @@ func repeatCommand(message *discordgo.MessageCreate) {
 }
 
 func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	state.UpdateListeningStatus("")
+	bot.UpdateListeningStatus("")
 
 	guild := session.State.Guilds[0]
 
@@ -38,37 +37,30 @@ func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 	}
 	voiceChannels := filterChannels(channels, discordgo.ChannelTypeGuildVoice)
 
-	voiceChannel := voiceChannels[0].ID
+	voiceChannelID := voiceChannels[0].ID
 
-	if voiceChannel == state.audio.GetChannelID() {
-		return
-	}
-
-	vc, err := joinChannel(session, guild.ID, voiceChannel)
+	vc, err := bot.joinChannel(session, guild.ID, voiceChannelID)
 	if err != nil {
 		return
 	}
 
-	state.audio.SetConnection(vc)
+	bot.setConnection(vc)
 }
 
 func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	state.UpdateListeningStatus("")
+	bot.UpdateListeningStatus("")
 
-	if !state.audio.IsConnected() {
+	if bot.voiceConnection == nil {
+		log.Print(errors.New("voice connection doesn't exist"))
 		return
 	}
 
-	channelID := state.audio.GetChannelID()
+	channelID := bot.voiceConnection.ChannelID
 
-	if state.audio.IsStreaming() {
-		state.audio.stream.SetPaused(true)
-	}
-
-	err := state.audio.connection.Disconnect()
+	err := bot.voiceConnection.Disconnect()
 	if err != nil {
 		log.Printf("Could not disconnect from audio channel %v: %v", channelID, err)
-		state.audio.SetConnection(nil)
+		bot.voiceConnection = nil
 		return
 	}
 
@@ -99,13 +91,10 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 
 	searchTerm := msg[1]
 
-	if !state.audio.IsConnected() {
-		log.Print(errors.New("Audio connection doesn't exist"))
+	if !bot.isVoiceConnected() {
+		log.Print(errors.New("voice connection isn't active"))
 		return
 	}
-
-	state.UpdateListeningStatus("Preparing song")
-	defer state.UpdateListeningStatus("")
 
 	track, err := youtube.Get(searchTerm)
 	if err != nil {
@@ -113,45 +102,33 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 		return
 	}
 
-	state.UpdateListeningStatus(track.Info.Title)
-	state.SetNowPlaying(track)
+	log.Printf("\"%s\" downloaded", track.Info.Title)
 
-	state.audio.connection.Speaking(true)
-	defer state.audio.connection.Speaking(false)
+	go func(bot *Bot, track player.Track) {
+		ok := make(chan bool, 1)
 
-	err = state.audio.Stream(track.Audio)
-	if err == io.EOF || err == io.ErrUnexpectedEOF {
-		log.Print("end of file, continuing")
-		err = nil
-	}
-	if err != nil {
-		log.Print(err)
-		return
-	}
+		bot.player.Queue(track, bot.voiceConnection, ok)
+
+		success := <-ok
+		if success == true {
+			bot.UpdateListeningStatus(track.Info.Title)
+		}
+	}(bot, track)
 }
 
 func pauseCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	if !state.audio.IsStreaming() {
+	if !bot.player.IsPlaying() {
+		log.Print("playback is already paused")
 		return
 	}
-	if state.audio.stream.Paused() {
-		return
-	}
-	state.audio.stream.SetPaused(true)
-
-	nowPlaying := state.GetNowPlaying()
-	state.UpdateListeningStatus(fmt.Sprintf("%s %s", pausedPrefix, nowPlaying.Info.Title))
+	bot.player.SetPaused(true)
 }
 
 func continueCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	if !state.audio.IsStreaming() {
-		return
-	}
-	if !state.audio.stream.Paused() {
+	if bot.player.IsPlaying() {
+		log.Print("playback is active")
 		return
 	}
 
-	state.audio.stream.SetPaused(false)
-	nowPlaying := state.GetNowPlaying()
-	state.UpdateListeningStatus(nowPlaying.Info.Title)
+	bot.player.SetPaused(false)
 }
