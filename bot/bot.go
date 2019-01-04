@@ -123,8 +123,6 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		return
 	}
 
-	// TODO queue tracks
-
 	if !strings.HasPrefix(message.Content, commandPrefix) {
 		return
 	}

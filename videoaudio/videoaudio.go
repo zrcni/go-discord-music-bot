@@ -11,7 +11,7 @@ import (
 )
 
 // TranscodeVideoToAudio transcodes video to audio (mp4 to mp3 currently)
-func TranscodeVideoToAudio(input io.Reader, filename string, output io.Writer) error {
+func TranscodeVideoToAudio(input io.Reader, output io.Writer) error {
 	args := []string{
 		"-i", "pipe:0",
 		"-f", "mp3",

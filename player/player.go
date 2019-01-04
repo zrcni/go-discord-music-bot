@@ -51,13 +51,12 @@ func (p *Player) GetNowPlaying() Track {
 
 // Queue adds a track to the queue, returns ok to channel if track starts playing
 func (p *Player) Queue(track Track, vc *discordgo.VoiceConnection, ok chan<- bool) {
-	if p.IsPlaying() {
+	if p.isStreaming() {
 		p.queue.Add(track)
 		ok <- false
 		log.Printf("\"%s\" added to queue", track.Info.Title)
 		return
 	}
-
 	ok <- true
 
 	go p.play(track, vc)
@@ -65,8 +64,8 @@ func (p *Player) Queue(track Track, vc *discordgo.VoiceConnection, ok chan<- boo
 
 // play starts the process that streams the track
 func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
-	if !vc.Ready {
-		// p.SetNowPlaying("")
+	if !vc.Ready && p.IsPlaying() {
+		p.UpdateBotStatus("")
 		return
 	}
 
@@ -74,7 +73,6 @@ func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
 
 	if err := p.startStream(track.Audio, vc); err != nil {
 		log.Print(err)
-		return
 	}
 
 	track, err := p.processQueue()
@@ -89,15 +87,12 @@ func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
 // startStream actually streams the audio to Discord
 func (p *Player) startStream(source dca.OpusReader, vc *discordgo.VoiceConnection) error {
 	done := make(chan error)
-
 	p.stream = dca.NewStream(source, vc, done)
 
-	log.Printf("\"%s\" started streaming", p.currentTrack.Info.Title)
-
-	// delay for a couple of seconds because buffering?
+	log.Printf("Started streaming \"%s\"", p.currentTrack.Info.Title)
 
 	err := <-done
-
+	p.UpdateBotStatus("")
 	log.Printf("Stopped streaming \"%s\"", p.currentTrack.Info.Title)
 
 	if err != nil {
@@ -113,14 +108,18 @@ func (p *Player) startStream(source dca.OpusReader, vc *discordgo.VoiceConnectio
 }
 
 // IsStreaming returns stream status as boolean
-func (p *Player) IsStreaming() bool {
+func (p *Player) isStreaming() bool {
+	if p.stream == nil {
+		return false
+	}
+
 	finished, err := p.stream.Finished()
 	if err != nil {
 		log.Println("player.IsStreaming:", err)
 		return false
 	}
 
-	return finished
+	return !finished
 }
 
 // IsPlaying returns stream status as boolean
@@ -133,12 +132,14 @@ func (p *Player) IsPlaying() bool {
 
 // SetPaused sets stream's the pause state
 func (p *Player) SetPaused(paused bool) {
-	p.stream.SetPaused(paused)
-
 	if paused {
 		p.UpdateBotStatus(fmt.Sprintf("%s %s", pausedPrefix, p.currentTrack.Info.Title))
 	} else {
 		p.UpdateBotStatus(p.currentTrack.Info.Title)
+	}
+
+	if p.stream != nil {
+		p.stream.SetPaused(paused)
 	}
 }
 

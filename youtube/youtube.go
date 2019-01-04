@@ -69,7 +69,7 @@ func Get(url string) (player.Track, error) {
 	// Transcoding mp4 to mp3 before encoding the result to DCA,
 	// I have no idea what I'm doing so the sound quality is shit with mp4->DCA
 	audioData := &bytes.Buffer{}
-	err = videoaudio.TranscodeVideoToAudio(videoData, videoInfo.ID, audioData)
+	err = videoaudio.TranscodeVideoToAudio(videoData, audioData)
 	if err != nil {
 		return player.Track{}, err
 	}
@@ -78,13 +78,6 @@ func Get(url string) (player.Track, error) {
 	if err != nil {
 		return player.Track{}, err
 	}
-	// defer os.Remove(fmt.Sprintf("%s.mp3", videoInfo.ID))
-
-	// audioFilenameWithExtension := fmt.Sprintf("%s.mp3", videoInfo.ID)
-	// data, err := ioutil.ReadFile(audioFilenameWithExtension)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	return player.Track{
 		Audio: encodeSession,
