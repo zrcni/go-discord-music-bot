@@ -1,15 +1,36 @@
 package queue
 
+import (
+	"fmt"
+)
+
 // Queue struct
 type Queue struct {
-	items []interface{}
-	len   int
+	items  []interface{}
+	len    int
+	maxLen int
+}
+
+// New creates a new queue wih specific max length
+func New(maxLen int) Queue {
+	if maxLen == 0 {
+		maxLen = 20
+	}
+
+	return Queue{
+		maxLen: maxLen,
+	}
 }
 
 // Add adds an item to the end of the queue
-func (q *Queue) Add(item interface{}) {
+func (q *Queue) Add(item interface{}) error {
+	if q.len == q.maxLen {
+		return fmt.Errorf("Queue is full (%v/%v)", q.len, q.maxLen)
+	}
 	q.items = append(q.items, item)
 	q.len = q.len + 1
+
+	return nil
 }
 
 // Shift removes the first item in the queue and returns it

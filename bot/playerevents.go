@@ -28,6 +28,10 @@ func (b *Bot) handlePlayerEvent(e player.Event) {
 		b.handleStopEvent(e)
 		return
 
+	case player.ERROR:
+		b.handleErrorEvent(e)
+		return
+
 	default:
 		log.Printf("invalid player event: %+v", e)
 		return
@@ -71,6 +75,14 @@ func (b *Bot) handleStopEvent(e player.Event) {
 	b.UpdateListeningStatus("")
 
 	_, err := b.session.ChannelMessageSend(e.ChannelID, e.Message)
+	if err != nil {
+		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
+	}
+}
+
+func (b *Bot) handleErrorEvent(e player.Event) {
+	message := fmt.Sprintf("%s. Could not play %s.", e.Message, e.Track.Title)
+	_, err := b.session.ChannelMessageSend(e.ChannelID, message)
 	if err != nil {
 		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}

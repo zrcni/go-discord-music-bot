@@ -24,9 +24,9 @@ type Track struct {
 }
 
 // New returns a new player
-func New() *Player {
-	return &Player{
-		queue:        queue.Queue{},
+func New() Player {
+	return Player{
+		queue:        queue.New(20),
 		EventChannel: make(chan Event),
 	}
 }
@@ -59,7 +59,19 @@ func (p *Player) GetNowPlaying() Track {
 // Queue adds a track to the queue, returns ok to channel if track starts playing
 func (p *Player) Queue(track Track, vc *discordgo.VoiceConnection) {
 	if p.isStreaming() {
-		p.queue.Add(track)
+		err := p.queue.Add(track)
+		if err != nil {
+			e := Event{
+				Type:      ERROR,
+				Track:     track,
+				Message:   err.Error(),
+				ChannelID: track.ChannelID,
+			}
+			p.sendEvent(e)
+			log.Print(err)
+			return
+		}
+
 		log.Printf("\"%s\" added to queue", track.Title)
 
 		e := Event{

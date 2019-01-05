@@ -85,7 +85,7 @@ func (b *Bot) UpdateListeningStatus(status string) {
 
 // Start discord bot
 func Start() {
-	bot.player = *player.New()
+	bot.player = player.New()
 	go bot.listenForPlayerEvents()
 
 	sess, err := discordgo.New(fmt.Sprintf("Bot %s", os.Getenv("BOT_TOKEN")))
