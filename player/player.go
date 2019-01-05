@@ -14,7 +14,7 @@ import (
 // Track stores audio data and info
 type Track struct {
 	Audio *dca.EncodeSession
-	Info  *ytdl.VideoInfo
+	Info  ytdl.VideoInfo
 }
 
 // New returns a new player
@@ -37,7 +37,7 @@ type Player struct {
 func (p *Player) SetNowPlaying(track Track) {
 	e := Event{
 		Type:    PLAY,
-		Track:   *track.Info,
+		Track:   track.Info,
 		Message: track.Info.Title,
 	}
 	p.sendEvent(e)
@@ -73,7 +73,7 @@ func (p *Player) IsPlaying() bool {
 // SetPaused sets stream's the pause state
 func (p *Player) SetPaused(paused bool) {
 	e := Event{
-		Track:   *p.currentTrack.Info,
+		Track:   p.currentTrack.Info,
 		Message: p.currentTrack.Info.Title,
 	}
 

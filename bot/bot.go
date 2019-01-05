@@ -10,8 +10,10 @@ import (
 	"github.com/zrcni/go-discord-music-bot/player"
 )
 
-const commandPrefix = "!"
-const pausedPrefix = "[Paused]"
+const (
+	commandPrefix = "!"
+	pausedPrefix  = "[Paused]"
+)
 
 var bot = &Bot{}
 
@@ -167,11 +169,11 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 	case messageHasCommand(message.Content, "play "):
 		callCommand(playCommand, cp)
 
+	case messageHasCommand(message.Content, "play"):
+		callCommand(continueCommand, cp)
+
 	case messageHasCommand(message.Content, "pause"):
 		callCommand(pauseCommand, cp)
-
-	case messageHasCommand(message.Content, "continue"):
-		callCommand(continueCommand, cp)
 	}
 }
 

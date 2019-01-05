@@ -27,17 +27,17 @@ func getVideoID(url string) string {
 }
 
 // GetMetadata fetches metadata for a video
-func GetMetadata(url string) (*ytdl.VideoInfo, error) {
+func GetMetadata(url string) (ytdl.VideoInfo, error) {
 	videoInfo, err := ytdl.GetVideoInfo(url)
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return ytdl.VideoInfo{}, err
 	}
-	return videoInfo, nil
+	return *videoInfo, nil
 }
 
 // Download a youtube video
-func downloadVideo(writer io.Writer, videoInfo *ytdl.VideoInfo) error {
+func downloadVideo(writer io.Writer, videoInfo ytdl.VideoInfo) error {
 	if len(videoInfo.Formats) == 0 {
 		return errors.New("No available video formats")
 	}
