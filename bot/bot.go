@@ -3,14 +3,15 @@ package bot
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/zrcni/go-discord-music-bot/config"
 	"github.com/zrcni/go-discord-music-bot/player"
 )
 
 const commandPrefix = "!"
+const pausedPrefix = "[Paused]"
 
 var bot = &Bot{}
 
@@ -65,16 +66,29 @@ func (b *Bot) UpdateListeningStatus(status string) {
 	}
 }
 
-func init() {
-	config.SetupEnv()
+func (b *Bot) handlePlayerEvent(e player.Event) {
+	var message string
+
+	switch e.Type {
+	case player.PLAY:
+		message = e.Track.Title
+	case player.PAUSE:
+		message = fmt.Sprintf("%s %s", pausedPrefix, e.Track.Title)
+	case player.STOP:
+		message = ""
+	default:
+		return
+	}
+
+	bot.UpdateListeningStatus(message)
 }
 
 // Start discord bot
 func Start() {
 	bot.player = *player.New()
-	bot.player.UpdateBotStatus = bot.UpdateListeningStatus
+	bot.player.OnEvent(bot.handlePlayerEvent)
 
-	sess, err := discordgo.New(fmt.Sprintf("Bot %s", config.BotToken))
+	sess, err := discordgo.New(fmt.Sprintf("Bot %s", os.Getenv("BOT_TOKEN")))
 	if err != nil {
 		log.Printf("Create session: %v", err)
 		return

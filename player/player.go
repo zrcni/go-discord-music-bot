@@ -2,7 +2,6 @@ package player
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"log"
 
@@ -11,8 +10,6 @@ import (
 	"github.com/rylio/ytdl"
 	"github.com/zrcni/go-discord-music-bot/queue"
 )
-
-const pausedPrefix = "[Paused]"
 
 // Track stores audio data and info
 type Track struct {
@@ -29,15 +26,31 @@ func New() *Player {
 
 // Player handler audio playback
 type Player struct {
-	currentTrack    Track
-	stream          *dca.StreamingSession
-	queue           queue.Queue
-	UpdateBotStatus func(string)
+	currentTrack   Track
+	stream         *dca.StreamingSession
+	queue          queue.Queue
+	eventCallbacks []func(Event)
+}
+
+// OnEvent adds a function
+func (p *Player) OnEvent(fn func(Event)) {
+	p.eventCallbacks = append(p.eventCallbacks, fn)
+}
+
+// sendEvent invokes all functions in statusChangeCallbacks
+func (p *Player) sendEvent(e Event) {
+	for _, fn := range p.eventCallbacks {
+		fn(e)
+	}
 }
 
 // SetNowPlaying sets currently playing track
 func (p *Player) SetNowPlaying(track Track) {
-	p.UpdateBotStatus(track.Info.Title)
+	e := Event{
+		Type:  PLAY,
+		Track: *track.Info,
+	}
+	p.sendEvent(e)
 	p.currentTrack = track
 }
 
@@ -69,15 +82,26 @@ func (p *Player) IsPlaying() bool {
 
 // SetPaused sets stream's the pause state
 func (p *Player) SetPaused(paused bool) {
+	e := Event{
+		Track: *p.currentTrack.Info,
+	}
+
 	if paused {
-		p.UpdateBotStatus(fmt.Sprintf("%s %s", pausedPrefix, p.currentTrack.Info.Title))
+		e.Type = PAUSE
+		p.sendEvent(e)
 	} else {
-		p.UpdateBotStatus(p.currentTrack.Info.Title)
+		e.Type = PLAY
+		p.sendEvent(e)
 	}
 
 	if p.stream != nil {
 		p.stream.SetPaused(paused)
 	}
+}
+
+// ClearQueue clears the queue
+func (p *Player) ClearQueue() {
+	p.queue.Clear()
 }
 
 // processQueue removes the first item from the queue and returns it
@@ -100,7 +124,10 @@ func (p *Player) processQueue() (Track, error) {
 // play starts the process that streams the track
 func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
 	if !vc.Ready && p.IsPlaying() {
-		p.UpdateBotStatus("")
+		e := Event{
+			Type: STOP,
+		}
+		p.sendEvent(e)
 		return
 	}
 
@@ -113,6 +140,11 @@ func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
 	track, err := p.processQueue()
 	if err != nil {
 		log.Print(err)
+
+		e := Event{
+			Type: STOP,
+		}
+		p.sendEvent(e)
 		return
 	}
 
@@ -127,7 +159,11 @@ func (p *Player) startStream(source dca.OpusReader, vc *discordgo.VoiceConnectio
 	log.Printf("Started streaming \"%s\"", p.currentTrack.Info.Title)
 
 	err := <-done
-	p.UpdateBotStatus("")
+
+	e := Event{
+		Type: STOP,
+	}
+	p.sendEvent(e)
 	log.Printf("Stopped streaming \"%s\"", p.currentTrack.Info.Title)
 
 	if err != nil {

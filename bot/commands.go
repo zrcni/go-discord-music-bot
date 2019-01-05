@@ -57,10 +57,11 @@ func stopCommand(cp commandParams) {
 
 	channelID := bot.voiceConnection.ChannelID
 
+	bot.player.ClearQueue()
+
 	err := bot.voiceConnection.Disconnect()
 	if err != nil {
 		log.Printf("Could not disconnect from audio channel %v: %v", channelID, err)
-		bot.voiceConnection = nil
 		return
 	}
 

@@ -32,3 +32,13 @@ func (q *Queue) Pop() interface{} {
 func (q *Queue) Length() int {
 	return q.len
 }
+
+// Clear clears the array
+func (q *Queue) Clear() {
+	for i := range q.items {
+		q.items[i] = nil
+	}
+	var emptySlice []interface{}
+	q.items = emptySlice
+	q.len = 0
+}
