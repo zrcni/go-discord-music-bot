@@ -83,6 +83,21 @@ func (p *Player) IsPlaying() bool {
 	return !p.stream.Paused()
 }
 
+// Stop stops streaming and clears the queue
+func (p *Player) Stop() {
+	e := Event{
+		Type:      STOP,
+		ChannelID: p.currentTrack.ChannelID,
+		Message:   "Stopped playing",
+	}
+
+	p.sendEvent(e)
+
+	p.stream.SetPaused(true)
+	p.ClearQueue()
+	p.currentTrack = Track{}
+}
+
 // SetPaused sets stream's the pause state
 func (p *Player) SetPaused(paused bool) {
 	e := Event{
@@ -95,7 +110,7 @@ func (p *Player) SetPaused(paused bool) {
 		e.Type = PAUSE
 		p.sendEvent(e)
 	} else {
-		e.Type = PLAY
+		e.Type = UNPAUSE
 		p.sendEvent(e)
 	}
 

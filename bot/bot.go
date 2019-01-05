@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/pkg/errors"
 	"github.com/zrcni/go-discord-music-bot/player"
 )
 
@@ -33,13 +34,27 @@ type Bot struct {
 func (b *Bot) joinChannel(session *discordgo.Session, guildID string, channelID string) error {
 	voiceConnection, err := session.ChannelVoiceJoin(guildID, channelID, false, true)
 	if err != nil {
-		log.Printf("Join voice channel: %v", err)
-		return err
+		return errors.Wrap(err, "could not join voice channel")
 	}
 
 	log.Printf("Joined channel: %v", channelID)
 
 	b.voiceConnection = voiceConnection
+
+	return nil
+}
+
+func (b *Bot) leaveChannel(session *discordgo.Session, channelID string) error {
+	if bot.voiceConnection == nil {
+		return errors.New("voice connection doesn't exist")
+	}
+
+	err := bot.voiceConnection.Disconnect()
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("could not leave voice channel %v", channelID))
+	}
+
+	log.Printf("Disconnected from audio channel %v", channelID)
 
 	return nil
 }
@@ -129,6 +144,9 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 	var command func(commandParams)
 
 	switch {
+	case messageHasCommand(message.Content, "join "):
+		command = joinCommand
+
 	case messageHasCommand(message.Content, "repeat "):
 		command = repeatCommand
 

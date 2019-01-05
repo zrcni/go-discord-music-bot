@@ -19,6 +19,8 @@ const (
 	PLAY event = iota
 	// QUEUE - track was queued
 	QUEUE
+	// UNPAUSE - track was unpaused
+	UNPAUSE
 	// PAUSE - track was paused
 	PAUSE
 	// STOP - streaming stopped
@@ -41,6 +43,8 @@ func logEvent(e Event) {
 		eventName = "PLAY"
 	case QUEUE:
 		eventName = "QUEUE"
+	case UNPAUSE:
+		eventName = "UNPAUSE"
 	case PAUSE:
 		eventName = "PAUSE"
 	case STOP:

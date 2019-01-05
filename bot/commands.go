@@ -2,6 +2,7 @@ package bot
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -24,6 +25,47 @@ func repeatCommand(cp commandParams) {
 	log.Printf("Message %v sent to channel %v", msg.ID, cp.message.ChannelID)
 }
 
+func joinCommand(cp commandParams) {
+	msg := strings.Split(cp.message.Content, "join ")
+	if len(msg) != 2 {
+		return
+	}
+	channelName := msg[1]
+
+	guild := cp.session.State.Guilds[0]
+
+	channels, err := cp.session.GuildChannels(guild.ID)
+	if err != nil {
+		log.Printf("Could not get guild channels: %v", err)
+		return
+	}
+
+	voiceChannels := filterChannels(channels, discordgo.ChannelTypeGuildVoice)
+
+	channel := findChannelByName(voiceChannels, channelName)
+
+	if channel == nil {
+		message := fmt.Sprintf("Could not find voice channel by name \"%s\"", channelName)
+		_, err := bot.session.ChannelMessageSend(cp.message.ChannelID, message)
+		if err != nil {
+			log.Printf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
+		}
+		return
+	}
+
+	err = bot.joinChannel(cp.session, guild.ID, channel.ID)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	message := fmt.Sprintf("Joined \"%s\"", channelName)
+	_, err = bot.session.ChannelMessageSend(cp.message.ChannelID, message)
+	if err != nil {
+		log.Printf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
+	}
+}
+
 func startCommand(cp commandParams) {
 	bot.UpdateListeningStatus("")
 
@@ -34,6 +76,7 @@ func startCommand(cp commandParams) {
 		log.Printf("Could not get guild channels: %v", err)
 		return
 	}
+
 	voiceChannels := filterChannels(channels, discordgo.ChannelTypeGuildVoice)
 
 	voiceChannelID := voiceChannels[0].ID
@@ -52,13 +95,13 @@ func stopCommand(cp commandParams) {
 		return
 	}
 
+	bot.player.Stop()
+
 	channelID := bot.voiceConnection.ChannelID
 
-	bot.player.ClearQueue()
-
-	err := bot.voiceConnection.Disconnect()
+	err := bot.leaveChannel(cp.session, channelID)
 	if err != nil {
-		log.Printf("Could not disconnect from audio channel %v: %v", channelID, err)
+		log.Print(err)
 		return
 	}
 

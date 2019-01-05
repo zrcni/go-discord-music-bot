@@ -17,6 +17,9 @@ func (b *Bot) handlePlayerEvent(e player.Event) {
 		b.handleQueueEvent(e)
 		return
 
+	case player.UNPAUSE:
+		b.handleUnpauseEvent(e)
+
 	case player.PAUSE:
 		b.handlePauseEvent(e)
 		return
@@ -53,6 +56,10 @@ func (b *Bot) handleQueueEvent(e player.Event) {
 	if err != nil {
 		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
+}
+
+func (b *Bot) handleUnpauseEvent(e player.Event) {
+	bot.UpdateListeningStatus(e.Track.Title)
 }
 
 func (b *Bot) handlePauseEvent(e player.Event) {
