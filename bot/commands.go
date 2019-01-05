@@ -39,12 +39,10 @@ func startCommand(cp commandParams) {
 
 	voiceChannelID := voiceChannels[0].ID
 
-	vc, err := bot.joinChannel(cp.session, guild.ID, voiceChannelID)
+	err = bot.joinChannel(cp.session, guild.ID, voiceChannelID)
 	if err != nil {
 		return
 	}
-
-	bot.setConnection(vc)
 }
 
 func stopCommand(cp commandParams) {

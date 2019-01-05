@@ -30,18 +30,18 @@ type Bot struct {
 	player          player.Player
 }
 
-func (b *Bot) joinChannel(session *discordgo.Session, guildID string, channelID string) (*discordgo.VoiceConnection, error) {
+func (b *Bot) joinChannel(session *discordgo.Session, guildID string, channelID string) error {
 	voiceConnection, err := session.ChannelVoiceJoin(guildID, channelID, false, true)
 	if err != nil {
 		log.Printf("Join voice channel: %v", err)
-		return nil, err
+		return err
 	}
 
 	log.Printf("Joined channel: %v", channelID)
 
 	b.voiceConnection = voiceConnection
 
-	return b.voiceConnection, nil
+	return nil
 }
 
 // SetConnection sets discord voice connection
@@ -151,30 +151,36 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		return
 	}
 
-	cp := commandParams{message, session}
+	params := commandParams{message, session}
+	var command func(commandParams)
 
 	switch {
 	case messageHasCommand(message.Content, "repeat "):
-		callCommand(repeatCommand, cp)
+		command = repeatCommand
 
 	case messageHasCommand(message.Content, "start"):
-		callCommand(startCommand, cp)
+		command = startCommand
 
 	case messageHasCommand(message.Content, "stop"):
-		callCommand(stopCommand, cp)
+		command = stopCommand
 
 	case messageHasCommand(message.Content, "playlist "):
-		callCommand(playlistsCommand, cp)
+		command = playlistsCommand
 
 	case messageHasCommand(message.Content, "play "):
-		callCommand(playCommand, cp)
+		command = playCommand
 
 	case messageHasCommand(message.Content, "play"):
-		callCommand(continueCommand, cp)
+		command = continueCommand
 
 	case messageHasCommand(message.Content, "pause"):
-		callCommand(pauseCommand, cp)
+		command = pauseCommand
+
+	default:
+		return
 	}
+
+	callCommand(command, params)
 }
 
 func callCommand(fn func(commandParams), cp commandParams) {
