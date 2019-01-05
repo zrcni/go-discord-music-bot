@@ -20,35 +20,25 @@ type Track struct {
 // New returns a new player
 func New() *Player {
 	return &Player{
-		queue: queue.Queue{},
+		queue:        queue.Queue{},
+		EventChannel: make(chan Event),
 	}
 }
 
 // Player handler audio playback
 type Player struct {
-	currentTrack   Track
-	stream         *dca.StreamingSession
-	queue          queue.Queue
-	eventCallbacks []func(Event)
-}
-
-// OnEvent adds a function
-func (p *Player) OnEvent(fn func(Event)) {
-	p.eventCallbacks = append(p.eventCallbacks, fn)
-}
-
-// sendEvent invokes all functions in statusChangeCallbacks
-func (p *Player) sendEvent(e Event) {
-	for _, fn := range p.eventCallbacks {
-		fn(e)
-	}
+	currentTrack Track
+	stream       *dca.StreamingSession
+	queue        queue.Queue
+	EventChannel chan Event
 }
 
 // SetNowPlaying sets currently playing track
 func (p *Player) SetNowPlaying(track Track) {
 	e := Event{
-		Type:  PLAY,
-		Track: *track.Info,
+		Type:    PLAY,
+		Track:   *track.Info,
+		Message: track.Info.Title,
 	}
 	p.sendEvent(e)
 	p.currentTrack = track
@@ -83,7 +73,8 @@ func (p *Player) IsPlaying() bool {
 // SetPaused sets stream's the pause state
 func (p *Player) SetPaused(paused bool) {
 	e := Event{
-		Track: *p.currentTrack.Info,
+		Track:   *p.currentTrack.Info,
+		Message: p.currentTrack.Info.Title,
 	}
 
 	if paused {
@@ -140,11 +131,6 @@ func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
 	track, err := p.processQueue()
 	if err != nil {
 		log.Print(err)
-
-		e := Event{
-			Type: STOP,
-		}
-		p.sendEvent(e)
 		return
 	}
 
