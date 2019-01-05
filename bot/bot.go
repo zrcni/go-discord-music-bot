@@ -67,32 +67,6 @@ func (b *Bot) UpdateListeningStatus(status string) {
 		fmt.Printf("Could not set listening status: %v", err)
 	}
 }
-func (b *Bot) handlePlayerEvent(e player.Event) {
-	var message string
-
-	switch e.Type {
-	case player.PLAY:
-		message = e.Track.Title
-
-	case player.PAUSE:
-		message = fmt.Sprintf("%s %s", pausedPrefix, e.Track.Title)
-
-	case player.STOP:
-		message = ""
-
-	default:
-		log.Printf("invalid player event: %+v", e)
-		return
-	}
-
-	bot.UpdateListeningStatus(message)
-}
-
-func (b *Bot) listenForPlayerEvents() {
-	for event := range b.player.EventChannel {
-		b.handlePlayerEvent(event)
-	}
-}
 
 // Start discord bot
 func Start() {

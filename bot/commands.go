@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/zrcni/go-discord-music-bot/player"
 	"github.com/zrcni/go-discord-music-bot/spotify"
 	"github.com/zrcni/go-discord-music-bot/youtube"
 )
@@ -103,16 +102,9 @@ func playCommand(cp commandParams) {
 
 	log.Printf("downloaded \"%s\"", track.Info.Title)
 
-	go func(bot *Bot, track player.Track) {
-		ok := make(chan bool, 1)
+	track.ChannelID = cp.message.ChannelID
 
-		bot.player.Queue(track, bot.voiceConnection, ok)
-
-		success := <-ok
-		if success == true {
-			bot.UpdateListeningStatus(track.Info.Title)
-		}
-	}(bot, track)
+	go bot.player.Queue(track, bot.voiceConnection)
 }
 
 func pauseCommand(cp commandParams) {

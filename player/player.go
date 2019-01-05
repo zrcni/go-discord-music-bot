@@ -15,6 +15,8 @@ import (
 type Track struct {
 	Audio *dca.EncodeSession
 	Info  ytdl.VideoInfo
+	// Discord channel ID where the track was queued from
+	ChannelID string
 }
 
 // New returns a new player
@@ -36,9 +38,10 @@ type Player struct {
 // SetNowPlaying sets currently playing track
 func (p *Player) SetNowPlaying(track Track) {
 	e := Event{
-		Type:    PLAY,
-		Track:   track.Info,
-		Message: track.Info.Title,
+		Type:      PLAY,
+		TrackInfo: track.Info,
+		Message:   track.Info.Title,
+		ChannelID: track.ChannelID,
 	}
 	p.sendEvent(e)
 	p.currentTrack = track
@@ -50,14 +53,20 @@ func (p *Player) GetNowPlaying() Track {
 }
 
 // Queue adds a track to the queue, returns ok to channel if track starts playing
-func (p *Player) Queue(track Track, vc *discordgo.VoiceConnection, ok chan<- bool) {
+func (p *Player) Queue(track Track, vc *discordgo.VoiceConnection) {
 	if p.isStreaming() {
 		p.queue.Add(track)
-		ok <- false
 		log.Printf("\"%s\" added to queue", track.Info.Title)
+
+		e := Event{
+			Type:      QUEUE,
+			TrackInfo: track.Info,
+			Message:   track.Info.Title,
+			ChannelID: track.ChannelID,
+		}
+		p.sendEvent(e)
 		return
 	}
-	ok <- true
 
 	go p.play(track, vc)
 }
@@ -73,8 +82,9 @@ func (p *Player) IsPlaying() bool {
 // SetPaused sets stream's the pause state
 func (p *Player) SetPaused(paused bool) {
 	e := Event{
-		Track:   p.currentTrack.Info,
-		Message: p.currentTrack.Info.Title,
+		TrackInfo: p.currentTrack.Info,
+		Message:   p.currentTrack.Info.Title,
+		ChannelID: p.currentTrack.ChannelID,
 	}
 
 	if paused {
@@ -99,6 +109,13 @@ func (p *Player) ClearQueue() {
 func (p *Player) processQueue() (Track, error) {
 	log.Printf("queueing next track")
 	if p.queue.Length() == 0 {
+
+		e := Event{
+			Type:      STOP,
+			ChannelID: p.currentTrack.ChannelID,
+			Message:   "the queue is empty",
+		}
+		p.sendEvent(e)
 		return Track{}, errors.New("the queue is empty")
 	}
 
@@ -115,10 +132,6 @@ func (p *Player) processQueue() (Track, error) {
 // play starts the process that streams the track
 func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
 	if !vc.Ready && p.IsPlaying() {
-		e := Event{
-			Type: STOP,
-		}
-		p.sendEvent(e)
 		return
 	}
 
@@ -146,10 +159,6 @@ func (p *Player) startStream(source dca.OpusReader, vc *discordgo.VoiceConnectio
 
 	err := <-done
 
-	e := Event{
-		Type: STOP,
-	}
-	p.sendEvent(e)
 	log.Printf("Stopped streaming \"%s\"", p.currentTrack.Info.Title)
 
 	if err != nil {

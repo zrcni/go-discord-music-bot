@@ -8,9 +8,10 @@ import (
 
 // Event has the event info
 type Event struct {
-	Type    event
-	Track   ytdl.VideoInfo
-	Message string
+	Type      event
+	TrackInfo ytdl.VideoInfo
+	Message   string
+	ChannelID string
 }
 
 type event int
@@ -18,6 +19,8 @@ type event int
 const (
 	// PLAY - track started playing
 	PLAY event = iota
+	// QUEUE - track was queued
+	QUEUE
 	// PAUSE - track was paused
 	PAUSE
 	// STOP - streaming stopped
@@ -38,6 +41,8 @@ func logEvent(e Event) {
 	switch e.Type {
 	case PLAY:
 		eventName = "PLAY"
+	case QUEUE:
+		eventName = "QUEUE"
 	case PAUSE:
 		eventName = "PAUSE"
 	case STOP:
