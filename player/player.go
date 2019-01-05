@@ -4,17 +4,21 @@ import (
 	"errors"
 	"io"
 	"log"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
-	"github.com/rylio/ytdl"
 	"github.com/zrcni/go-discord-music-bot/queue"
 )
 
 // Track stores audio data and info
 type Track struct {
-	Audio *dca.EncodeSession
-	Info  ytdl.VideoInfo
+	Audio        *dca.EncodeSession
+	Title        string
+	Duration     time.Duration
+	ID           string
+	ThumbnailURL string
+	Link         string
 	// Discord channel ID where the track was queued from
 	ChannelID string
 }
@@ -39,8 +43,8 @@ type Player struct {
 func (p *Player) SetNowPlaying(track Track) {
 	e := Event{
 		Type:      PLAY,
-		TrackInfo: track.Info,
-		Message:   track.Info.Title,
+		Track:     track,
+		Message:   track.Title,
 		ChannelID: track.ChannelID,
 	}
 	p.sendEvent(e)
@@ -56,12 +60,12 @@ func (p *Player) GetNowPlaying() Track {
 func (p *Player) Queue(track Track, vc *discordgo.VoiceConnection) {
 	if p.isStreaming() {
 		p.queue.Add(track)
-		log.Printf("\"%s\" added to queue", track.Info.Title)
+		log.Printf("\"%s\" added to queue", track.Title)
 
 		e := Event{
 			Type:      QUEUE,
-			TrackInfo: track.Info,
-			Message:   track.Info.Title,
+			Track:     track,
+			Message:   track.Title,
 			ChannelID: track.ChannelID,
 		}
 		p.sendEvent(e)
@@ -82,8 +86,8 @@ func (p *Player) IsPlaying() bool {
 // SetPaused sets stream's the pause state
 func (p *Player) SetPaused(paused bool) {
 	e := Event{
-		TrackInfo: p.currentTrack.Info,
-		Message:   p.currentTrack.Info.Title,
+		Track:     p.currentTrack,
+		Message:   p.currentTrack.Title,
 		ChannelID: p.currentTrack.ChannelID,
 	}
 
@@ -155,11 +159,11 @@ func (p *Player) startStream(source dca.OpusReader, vc *discordgo.VoiceConnectio
 	done := make(chan error)
 	p.stream = dca.NewStream(source, vc, done)
 
-	log.Printf("Started streaming \"%s\"", p.currentTrack.Info.Title)
+	log.Printf("Started streaming \"%s\"", p.currentTrack.Title)
 
 	err := <-done
 
-	log.Printf("Stopped streaming \"%s\"", p.currentTrack.Info.Title)
+	log.Printf("Stopped streaming \"%s\"", p.currentTrack.Title)
 
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {

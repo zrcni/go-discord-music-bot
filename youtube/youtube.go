@@ -79,8 +79,14 @@ func Get(url string) (player.Track, error) {
 		return player.Track{}, err
 	}
 
+	thumbnailURL := videoInfo.GetThumbnailURL(ytdl.ThumbnailQualityDefault).String()
+
 	return player.Track{
-		Audio: encodeSession,
-		Info:  videoInfo,
+		Audio:        encodeSession,
+		Title:        videoInfo.Title,
+		ID:           videoInfo.ID,
+		Duration:     videoInfo.Duration,
+		ThumbnailURL: thumbnailURL,
+		Link:         url,
 	}, nil
 }

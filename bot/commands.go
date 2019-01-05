@@ -100,7 +100,7 @@ func playCommand(cp commandParams) {
 		return
 	}
 
-	log.Printf("downloaded \"%s\"", track.Info.Title)
+	log.Printf("downloaded \"%s\"", track.Title)
 
 	track.ChannelID = cp.message.ChannelID
 

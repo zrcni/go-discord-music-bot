@@ -38,23 +38,25 @@ func (b *Bot) listenForPlayerEvents() {
 }
 
 func (b *Bot) handlePlayEvent(e player.Event) {
-	bot.UpdateListeningStatus(e.TrackInfo.Title)
+	bot.UpdateListeningStatus(e.Track.Title)
 
-	_, err := b.session.ChannelMessageSend(e.ChannelID, fmt.Sprintf("Now playing: \"%s\"", e.TrackInfo.Title))
+	msg := createPlayingMessage(e)
+
+	_, err := b.session.ChannelMessageSendComplex(e.ChannelID, msg)
 	if err != nil {
 		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
 }
 
 func (b *Bot) handleQueueEvent(e player.Event) {
-	_, err := b.session.ChannelMessageSend(e.ChannelID, fmt.Sprintf("Queued: \"%s\"", e.TrackInfo.Title))
+	_, err := b.session.ChannelMessageSend(e.ChannelID, fmt.Sprintf("Queued: \"%s\"", e.Track.Title))
 	if err != nil {
 		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
 }
 
 func (b *Bot) handlePauseEvent(e player.Event) {
-	status := fmt.Sprintf("%s %s", pausedPrefix, e.TrackInfo.Title)
+	status := fmt.Sprintf("%s %s", pausedPrefix, e.Track.Title)
 	b.UpdateListeningStatus(status)
 }
 

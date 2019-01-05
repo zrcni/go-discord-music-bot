@@ -2,14 +2,12 @@ package player
 
 import (
 	"log"
-
-	"github.com/rylio/ytdl"
 )
 
 // Event has the event info
 type Event struct {
 	Type      event
-	TrackInfo ytdl.VideoInfo
+	Track     Track
 	Message   string
 	ChannelID string
 }
