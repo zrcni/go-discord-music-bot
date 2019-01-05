@@ -11,26 +11,26 @@ import (
 	"github.com/zrcni/go-discord-music-bot/youtube"
 )
 
-func repeatCommand(message *discordgo.MessageCreate) {
-	str := strings.Split(message.Content, "repeat ")
+func repeatCommand(cp commandParams) {
+	str := strings.Split(cp.message.Content, "repeat ")
 	if len(str) != 2 {
 		return
 	}
 
-	msg, err := bot.session.ChannelMessageSend(message.ChannelID, str[1])
+	msg, err := bot.session.ChannelMessageSend(cp.message.ChannelID, str[1])
 	if err != nil {
-		log.Printf("Could not send a message to channel %v: %v", message.ChannelID, err)
+		log.Printf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
 		return
 	}
-	log.Printf("Message %v sent to channel %v", msg.ID, message.ChannelID)
+	log.Printf("Message %v sent to channel %v", msg.ID, cp.message.ChannelID)
 }
 
-func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
+func startCommand(cp commandParams) {
 	bot.UpdateListeningStatus("")
 
-	guild := session.State.Guilds[0]
+	guild := cp.session.State.Guilds[0]
 
-	channels, err := session.GuildChannels(guild.ID)
+	channels, err := cp.session.GuildChannels(guild.ID)
 	if err != nil {
 		log.Printf("Could not get guild channels: %v", err)
 		return
@@ -39,7 +39,7 @@ func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 
 	voiceChannelID := voiceChannels[0].ID
 
-	vc, err := bot.joinChannel(session, guild.ID, voiceChannelID)
+	vc, err := bot.joinChannel(cp.session, guild.ID, voiceChannelID)
 	if err != nil {
 		return
 	}
@@ -47,7 +47,7 @@ func startCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 	bot.setConnection(vc)
 }
 
-func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
+func stopCommand(cp commandParams) {
 	bot.UpdateListeningStatus("")
 
 	if bot.voiceConnection == nil {
@@ -67,8 +67,8 @@ func stopCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	log.Printf("Disconnected from audio channel %v", channelID)
 }
 
-func playlistsCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	msg := strings.Split(message.Content, "playlist ")
+func playlistsCommand(cp commandParams) {
+	msg := strings.Split(cp.message.Content, "playlist ")
 	if len(msg) != 2 {
 		return
 	}
@@ -79,12 +79,12 @@ func playlistsCommand(message *discordgo.MessageCreate, session *discordgo.Sessi
 	playlists := spotifyClient.GetPlaylists(searchTerm)
 
 	if len(playlists) > 0 {
-		session.ChannelMessageSend(message.ChannelID, strings.Join(playlists, "\n"))
+		cp.session.ChannelMessageSend(cp.message.ChannelID, strings.Join(playlists, "\n"))
 	}
 }
 
-func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
-	msg := strings.Split(message.Content, "play ")
+func playCommand(cp commandParams) {
+	msg := strings.Split(cp.message.Content, "play ")
 	if len(msg) != 2 || msg[1] == "" {
 		return
 	}
@@ -102,7 +102,7 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 		return
 	}
 
-	log.Printf("\"%s\" downloaded", track.Info.Title)
+	log.Printf("downloaded \"%s\"", track.Info.Title)
 
 	go func(bot *Bot, track player.Track) {
 		ok := make(chan bool, 1)
@@ -116,7 +116,7 @@ func playCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
 	}(bot, track)
 }
 
-func pauseCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
+func pauseCommand(cp commandParams) {
 	if !bot.player.IsPlaying() {
 		log.Print("playback is already paused")
 		return
@@ -124,7 +124,7 @@ func pauseCommand(message *discordgo.MessageCreate, session *discordgo.Session) 
 	bot.player.SetPaused(true)
 }
 
-func continueCommand(message *discordgo.MessageCreate, session *discordgo.Session) {
+func continueCommand(cp commandParams) {
 	if bot.player.IsPlaying() {
 		log.Print("playback is active")
 		return

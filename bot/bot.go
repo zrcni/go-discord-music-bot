@@ -14,6 +14,11 @@ const commandPrefix = "!"
 
 var bot = &Bot{}
 
+type commandParams struct {
+	message *discordgo.MessageCreate
+	session *discordgo.Session
+}
+
 // Bot manages the state of the bot
 type Bot struct {
 	ID              string
@@ -42,16 +47,10 @@ func (b *Bot) setConnection(vc *discordgo.VoiceConnection) {
 }
 
 func (b *Bot) isVoiceConnected() bool {
-	log.Print(bot.voiceConnection)
 	if bot.voiceConnection == nil {
 		return false
 	}
 	return bot.voiceConnection.Ready
-}
-
-// SetBotID sets botID
-func (b *Bot) SetBotID(userID string) {
-	b.ID = userID
 }
 
 // SetSession sets session
@@ -89,7 +88,7 @@ func Start() {
 		return
 	}
 
-	bot.SetBotID(user.ID)
+	bot.ID = user.ID
 
 	bot.session.AddHandler(readyHandler)
 	bot.session.AddHandler(commandHandler)
@@ -127,26 +126,33 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		return
 	}
 
+	cp := commandParams{message, session}
+
 	switch {
 	case messageHasCommand(message.Content, "repeat "):
-		repeatCommand(message)
+		callCommand(repeatCommand, cp)
 
 	case messageHasCommand(message.Content, "start"):
-		startCommand(message, session)
+		callCommand(startCommand, cp)
 
 	case messageHasCommand(message.Content, "stop"):
-		stopCommand(message, session)
+		callCommand(stopCommand, cp)
 
 	case messageHasCommand(message.Content, "playlist "):
-		playlistsCommand(message, session)
+		callCommand(playlistsCommand, cp)
 
 	case messageHasCommand(message.Content, "play "):
-		playCommand(message, session)
+		callCommand(playCommand, cp)
 
 	case messageHasCommand(message.Content, "pause"):
-		pauseCommand(message, session)
+		callCommand(pauseCommand, cp)
 
 	case messageHasCommand(message.Content, "continue"):
-		continueCommand(message, session)
+		callCommand(continueCommand, cp)
 	}
+}
+
+func callCommand(fn func(commandParams), cp commandParams) {
+	log.Printf("Received command \"%s\"", cp.message.Content)
+	fn(cp)
 }
