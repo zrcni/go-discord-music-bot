@@ -1,5 +1,6 @@
 start:
-	go run ./main.go
+	go build -o ./czarbot
+	./czarbot
 
 build:
-	go build -o czarbot
+	go build -o ./czarbot

@@ -8,6 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/zrcni/go-discord-music-bot/downloader"
 	"github.com/zrcni/go-discord-music-bot/player"
 )
 
@@ -29,6 +30,7 @@ type Bot struct {
 	session         *discordgo.Session
 	voiceConnection *discordgo.VoiceConnection
 	player          player.Player
+	downloader      downloader.Downloader
 }
 
 func (b *Bot) joinChannel(session *discordgo.Session, guildID string, channelID string) error {
@@ -39,7 +41,7 @@ func (b *Bot) joinChannel(session *discordgo.Session, guildID string, channelID 
 
 	log.Printf("Joined channel: %v", channelID)
 
-	b.voiceConnection = voiceConnection
+	b.setConnection(voiceConnection)
 
 	return nil
 }
@@ -62,6 +64,7 @@ func (b *Bot) leaveChannel(session *discordgo.Session, channelID string) error {
 // SetConnection sets discord voice connection
 func (b *Bot) setConnection(vc *discordgo.VoiceConnection) {
 	b.voiceConnection = vc
+	b.player.VoiceConnection = vc
 }
 
 func (b *Bot) isVoiceConnected() bool {
@@ -86,6 +89,7 @@ func (b *Bot) UpdateListeningStatus(status string) {
 // Start discord bot
 func Start() {
 	bot.player = player.New()
+	bot.downloader = downloader.New(20)
 	go bot.listenForPlayerEvents()
 
 	sess, err := discordgo.New(fmt.Sprintf("Bot %s", os.Getenv("BOT_TOKEN")))
@@ -125,7 +129,7 @@ func readyHandler(session *discordgo.Session, ready *discordgo.Ready) {
 	}
 	guilds := session.State.Guilds
 
-	fmt.Printf("%s has started on %d server(s)\n", user.Username, len(guilds))
+	log.Printf("%s has started on %d server(s)\n", user.Username, len(guilds))
 
 	bot.UpdateListeningStatus("")
 }
@@ -177,5 +181,5 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 
 func callCommand(fn func(commandParams), cp commandParams) {
 	log.Printf("Received command \"%s\"", cp.message.Content)
-	fn(cp)
+	go fn(cp)
 }

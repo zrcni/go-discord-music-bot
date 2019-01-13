@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/zrcni/go-discord-music-bot/downloader"
 	"github.com/zrcni/go-discord-music-bot/spotify"
-	"github.com/zrcni/go-discord-music-bot/youtube"
 )
 
 func repeatCommand(cp commandParams) {
@@ -104,8 +105,6 @@ func stopCommand(cp commandParams) {
 		log.Print(err)
 		return
 	}
-
-	log.Printf("Disconnected from audio channel %v", channelID)
 }
 
 func playlistsCommand(cp commandParams) {
@@ -129,25 +128,26 @@ func playCommand(cp commandParams) {
 	if len(msg) != 2 || msg[1] == "" {
 		return
 	}
-
-	searchTerm := msg[1]
+	url := msg[1]
 
 	if !bot.isVoiceConnected() {
 		log.Print(errors.New("voice connection isn't active"))
 		return
 	}
 
-	track, err := youtube.Get(searchTerm)
-	if err != nil {
-		log.Print(err)
-		return
+	timestampMs := time.Now().UnixNano() / 1000000
+	ID := fmt.Sprintf("%s-%v", url, timestampMs)
+
+	downloadable := downloader.Downloadable{ID: ID}
+	downloadable.Get = func() {
+		track, err := downloadYoutube(url, cp)
+		if err != nil {
+			log.Print(err)
+		}
+		go bot.player.Queue(track)
 	}
 
-	log.Printf("downloaded \"%s\"", track.Title)
-
-	track.ChannelID = cp.message.ChannelID
-
-	go bot.player.Queue(track, bot.voiceConnection)
+	go bot.downloader.Queue(downloadable)
 }
 
 func pauseCommand(cp commandParams) {

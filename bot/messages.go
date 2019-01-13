@@ -28,7 +28,7 @@ func createPlayingMessage(e player.Event) *discordgo.MessageSend {
 			Color:       PURPLE,
 			Title:       e.Track.Title,
 			Description: trackDuration,
-			URL:         e.Track.Link,
+			URL:         e.Track.URL,
 			Image:       image,
 			Footer:      footer,
 		},

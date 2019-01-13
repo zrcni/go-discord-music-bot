@@ -31,7 +31,7 @@ const (
 
 // sendEvent sends and event to the event channel
 func (p *Player) sendEvent(e Event) {
-	p.EventChannel <- e
+	p.Events <- e
 	logEvent(e)
 }
 

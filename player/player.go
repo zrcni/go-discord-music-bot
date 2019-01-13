@@ -2,6 +2,7 @@ package player
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 	"github.com/zrcni/go-discord-music-bot/queue"
+	"github.com/zrcni/go-discord-music-bot/videoaudio"
 )
 
 // Track stores audio data and info
@@ -18,25 +20,27 @@ type Track struct {
 	Duration     time.Duration
 	ID           string
 	ThumbnailURL string
-	Link         string
-	// Discord channel ID where the track was queued from
+	URL          string
+	Filename     string
+	// Discord text channel ID where the track was queued from
 	ChannelID string
 }
 
 // New returns a new player
 func New() Player {
 	return Player{
-		queue:        queue.New(20),
-		EventChannel: make(chan Event),
+		queue:  queue.New(20),
+		Events: make(chan Event),
 	}
 }
 
 // Player handler audio playback
 type Player struct {
-	currentTrack Track
-	stream       *dca.StreamingSession
-	queue        queue.Queue
-	EventChannel chan Event
+	currentTrack    Track
+	stream          *dca.StreamingSession
+	VoiceConnection *discordgo.VoiceConnection
+	queue           queue.Queue
+	Events          chan Event
 }
 
 // SetNowPlaying sets currently playing track
@@ -54,37 +58,6 @@ func (p *Player) SetNowPlaying(track Track) {
 // GetNowPlaying gets currenly playing track
 func (p *Player) GetNowPlaying() Track {
 	return p.currentTrack
-}
-
-// Queue adds a track to the queue, returns ok to channel if track starts playing
-func (p *Player) Queue(track Track, vc *discordgo.VoiceConnection) {
-	if p.isStreaming() {
-		err := p.queue.Add(track)
-		if err != nil {
-			e := Event{
-				Type:      ERROR,
-				Track:     track,
-				Message:   err.Error(),
-				ChannelID: track.ChannelID,
-			}
-			p.sendEvent(e)
-			log.Print(err)
-			return
-		}
-
-		log.Printf("\"%s\" added to queue", track.Title)
-
-		e := Event{
-			Type:      QUEUE,
-			Track:     track,
-			Message:   track.Title,
-			ChannelID: track.ChannelID,
-		}
-		p.sendEvent(e)
-		return
-	}
-
-	go p.play(track, vc)
 }
 
 // IsPlaying returns stream status as boolean
@@ -105,7 +78,9 @@ func (p *Player) Stop() {
 
 	p.sendEvent(e)
 
-	p.stream.SetPaused(true)
+	if p.stream != nil {
+		p.stream.SetPaused(true)
+	}
 	p.ClearQueue()
 	p.currentTrack = Track{}
 }
@@ -136,55 +111,133 @@ func (p *Player) ClearQueue() {
 	p.queue.Clear()
 }
 
+// Queue adds a track to the queue, returns ok to channel if track starts playing
+func (p *Player) Queue(track Track) {
+	err := p.queue.Add(track)
+	if err != nil {
+		e := Event{
+			Type:      ERROR,
+			Track:     track,
+			Message:   err.Error(),
+			ChannelID: track.ChannelID,
+		}
+		p.sendEvent(e)
+		log.Print(err)
+		return
+	}
+
+	log.Printf("\"%s\" added to queue", track.Title)
+
+	e := Event{
+		Type:      QUEUE,
+		Track:     track,
+		Message:   track.Title,
+		ChannelID: track.ChannelID,
+	}
+	p.sendEvent(e)
+
+	p.processQueue()
+	// if p.isStreaming() {
+	// err := p.queue.Add(track)
+	// if err != nil {
+	// 	e := Event{
+	// 		Type:      ERROR,
+	// 		Track:     track,
+	// 		Message:   err.Error(),
+	// 		ChannelID: track.ChannelID,
+	// 	}
+	// 	p.sendEvent(e)
+	// 	log.Print(err)
+	// 	return
+	// }
+
+	// log.Printf("\"%s\" added to queue", track.Title)
+
+	// e := Event{
+	// 	Type:      QUEUE,
+	// 	Track:     track,
+	// 	Message:   track.Title,
+	// 	ChannelID: track.ChannelID,
+	// }
+	// 	// p.sendEvent(e)
+	// 	return
+	// }
+
+	// go p.play(track, vc)
+}
+
 // processQueue removes the first item from the queue and returns it
-func (p *Player) processQueue() (Track, error) {
+func (p *Player) processQueue() {
 	log.Printf("queueing next track")
 	if p.queue.Length() == 0 {
-
 		e := Event{
 			Type:      STOP,
 			ChannelID: p.currentTrack.ChannelID,
-			Message:   "the queue is empty",
+			Message:   "Stopped playing - the queue is empty",
 		}
 		p.sendEvent(e)
-		return Track{}, errors.New("the queue is empty")
+		p.currentTrack = Track{}
+		log.Print("the queue is empty")
+		return
+	}
+
+	if p.isStreaming() {
+		log.Printf("already streaming")
+		return
 	}
 
 	track := p.queue.Shift()
 
 	t, ok := track.(Track)
 	if !ok {
-		return Track{}, errors.New("track is not of type Track")
+		panic(fmt.Sprintf("track is not of type Track: %+v", t))
 	}
 
-	return t, nil
+	if p.queue.Length() > 1 {
+		go func(p *Player) {
+			err := p.prepareNextTrack()
+			if err != nil {
+				log.Print(err)
+			}
+		}(p)
+	}
+
+	go p.play(t)
 }
 
 // play starts the process that streams the track
-func (p *Player) play(track Track, vc *discordgo.VoiceConnection) {
-	if !vc.Ready && p.IsPlaying() {
+func (p *Player) play(track Track) {
+	if !p.VoiceConnection.Ready {
+		log.Printf("voice connection is not ready")
 		return
 	}
+	// if p.IsPlaying() {
+	// 	log.Printf("already playing")
+	// 	return
+	// }
 
-	p.SetNowPlaying(track)
+	if track.Audio != nil {
+		p.SetNowPlaying(track)
 
-	if err := p.startStream(track.Audio, vc); err != nil {
-		log.Print(err)
+		err := p.startStream(track.Audio)
+		if err != nil {
+			log.Print(err)
+		}
+	} else {
+		// TODO: fix audio sometimes being nil.
+		// It happens when replacing track.
+		log.Printf("track.Audio is nil in: %v", track.Title)
+		p.queue.DeleteAt(0)
+		log.Printf("deleted: %v", track.Title)
 	}
 
-	track, err := p.processQueue()
-	if err != nil {
-		log.Print(err)
-		return
-	}
-
-	go p.play(track, vc)
+	p.processQueue()
 }
 
 // startStream actually streams the audio to Discord
-func (p *Player) startStream(source dca.OpusReader, vc *discordgo.VoiceConnection) error {
+func (p *Player) startStream(source dca.OpusReader) error {
 	done := make(chan error)
-	p.stream = dca.NewStream(source, vc, done)
+	p.stream = dca.NewStream(source, p.VoiceConnection, done)
 
 	log.Printf("Started streaming \"%s\"", p.currentTrack.Title)
 
@@ -196,7 +249,7 @@ func (p *Player) startStream(source dca.OpusReader, vc *discordgo.VoiceConnectio
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return nil
 		}
-		p.stream = nil
+		// p.stream = nil
 		return err
 	}
 
@@ -216,4 +269,64 @@ func (p *Player) isStreaming() bool {
 	}
 
 	return !finished
+}
+
+func (p *Player) prepareNextTrack() error {
+	log.Print("preparing next track")
+
+	t, err := p.queue.GetAt(0)
+	if err != nil {
+		return errors.New("queue is empty, can't prepare next track")
+	}
+
+	track, ok := t.(Track)
+	if !ok {
+		panic(fmt.Sprintf("t is not of type Track: %+v", t))
+	}
+
+	// If track doesn't have audio (it's taken from queue)
+	// probably dont need to check this because it's from the queue anyway?
+	if track.Audio != nil {
+		return errors.New("track already has audio data")
+	}
+
+	es, err := videoaudio.ReadAudioFile(track.Filename)
+	if err != nil {
+		log.Printf("couldn't read audio file, removing track from queue: \"%s\"", track.Title)
+
+		ok := p.queue.DeleteAt(0)
+		if !ok {
+			log.Printf("Can't delete item. Queue length is %v", p.queue.Length())
+		}
+		return err
+	}
+
+	// Copy track, because audio/encodeSession can't be reassigned
+	tr := Track{
+		Title:        track.Title,
+		Duration:     track.Duration,
+		ID:           track.ID,
+		ThumbnailURL: track.ThumbnailURL,
+		URL:          track.URL,
+		ChannelID:    track.ChannelID,
+		Audio:        es,
+	}
+
+	ok = p.queue.ReplaceAt(0, tr)
+	if !ok {
+		log.Printf("could not replace item at index %v, deleteting...", 0)
+		ok = p.queue.DeleteAt(0)
+		if !ok {
+			log.Printf("Can't delete item. Queue length is %v", p.queue.Length())
+		}
+		return errors.New("could not prepare track")
+	}
+
+	log.Print("next track prepared")
+	return nil
+}
+
+// QueueLength return queue length
+func (p *Player) QueueLength() int {
+	return p.queue.Length()
 }

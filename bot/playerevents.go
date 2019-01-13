@@ -39,7 +39,7 @@ func (b *Bot) handlePlayerEvent(e player.Event) {
 }
 
 func (b *Bot) listenForPlayerEvents() {
-	for event := range b.player.EventChannel {
+	for event := range b.player.Events {
 		b.handlePlayerEvent(event)
 	}
 }
@@ -74,7 +74,8 @@ func (b *Bot) handlePauseEvent(e player.Event) {
 func (b *Bot) handleStopEvent(e player.Event) {
 	b.UpdateListeningStatus("")
 
-	_, err := b.session.ChannelMessageSend(e.ChannelID, e.Message)
+	message := fmt.Sprintf(e.Message)
+	_, err := b.session.ChannelMessageSend(e.ChannelID, message)
 	if err != nil {
 		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
