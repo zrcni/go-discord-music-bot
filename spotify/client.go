@@ -1,8 +1,7 @@
 package spotify
 
 import (
-	"log"
-
+	log "github.com/sirupsen/logrus"
 	"github.com/zmb3/spotify"
 )
 
@@ -32,7 +31,7 @@ func (c *Client) DoAction(action string) {
 	}
 
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 	}
 }
 
@@ -42,14 +41,14 @@ func (c *Client) GetPlaylists(searchTerm string) []string {
 	// }
 	res, err := c.client.Search(searchTerm, spotify.SearchTypePlaylist)
 	if err != nil {
-		log.Printf("Search playlist: %v", err)
+		log.Errorf("Search playlist: %v", err)
 		return []string{}
 	}
 
 	var playlistNames []string
 
 	for _, playlist := range res.Playlists.Playlists {
-		log.Printf("%+v\n", playlist.Name)
+		log.Infof("%+v", playlist.Name)
 		playlistNames = append(playlistNames, playlist.Name)
 	}
 

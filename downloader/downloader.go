@@ -2,8 +2,8 @@ package downloader
 
 import (
 	"fmt"
-	"log"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/queue"
 )
 
@@ -31,19 +31,19 @@ func New(len int) Downloader {
 func (d *Downloader) Queue(item Downloadable) {
 	err := d.queue.Add(item)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		return
 	}
-	log.Printf("[%s] added to queue: %s", packageName, item.ID)
+	log.Infof("[%s] added to queue: %s", packageName, item.ID)
 
 	d.processQueue()
 }
 
 func (d *Downloader) processQueue() {
-	log.Printf("[%s] processing queue", packageName)
+	log.Debugf("[%s] processing queue", packageName)
 
 	if d.queue.Length() == 0 {
-		log.Printf("[%s] queue is empty", packageName)
+		log.Infof("[%s] queue is empty", packageName)
 		return
 	}
 
@@ -55,12 +55,12 @@ func (d *Downloader) processQueue() {
 	}
 
 	d.download(downloadable)
-	log.Printf("[%s] queue processed", packageName)
+	log.Debugf("[%s] queue processed", packageName)
 
 	d.processQueue()
 }
 
 func (d *Downloader) download(dl Downloadable) {
-	log.Printf("[%s] downloading: %s", packageName, dl.ID)
+	log.Infof("[%s] downloading: %s", packageName, dl.ID)
 	dl.Get()
 }

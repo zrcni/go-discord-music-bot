@@ -2,12 +2,12 @@ package bot
 
 import (
 	"fmt"
-	"log"
-	"os"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"github.com/zrcni/go-discord-music-bot/config"
 	"github.com/zrcni/go-discord-music-bot/downloader"
 	"github.com/zrcni/go-discord-music-bot/player"
 )
@@ -39,7 +39,7 @@ func (b *Bot) joinChannel(session *discordgo.Session, guildID string, channelID 
 		return errors.Wrap(err, "could not join voice channel")
 	}
 
-	log.Printf("Joined channel: %v", channelID)
+	log.Infof("Joined channel: %v", channelID)
 
 	b.setConnection(voiceConnection)
 
@@ -56,8 +56,7 @@ func (b *Bot) leaveChannel(session *discordgo.Session, channelID string) error {
 		return errors.Wrap(err, fmt.Sprintf("could not leave voice channel %v", channelID))
 	}
 
-	log.Printf("Disconnected from audio channel %v", channelID)
-
+	log.Infof("Disconnected from audio channel %v", channelID)
 	return nil
 }
 
@@ -82,7 +81,7 @@ func (b *Bot) SetSession(sess *discordgo.Session) {
 // UpdateListeningStatus sets discord listening status and stores it locally
 func (b *Bot) UpdateListeningStatus(status string) {
 	if err := b.session.UpdateListeningStatus(status); err != nil {
-		fmt.Printf("Could not set listening status: %v", err)
+		log.Errorf("Could not set listening status: %v", err)
 	}
 }
 
@@ -92,9 +91,9 @@ func Start() {
 	bot.downloader = downloader.New(20)
 	go bot.listenForPlayerEvents()
 
-	sess, err := discordgo.New(fmt.Sprintf("Bot %s", os.Getenv("BOT_TOKEN")))
+	sess, err := discordgo.New(fmt.Sprintf("Bot %s", config.Config.BotToken))
 	if err != nil {
-		log.Printf("Create session: %v", err)
+		log.Errorf("Create session: %v", err)
 		return
 	}
 
@@ -102,7 +101,7 @@ func Start() {
 
 	user, err := bot.session.User("@me")
 	if err != nil {
-		log.Printf("Create user: %v", err)
+		log.Errorf("Create user: %v", err)
 		return
 	}
 
@@ -112,7 +111,7 @@ func Start() {
 	bot.session.AddHandler(commandHandler)
 
 	if err := bot.session.Open(); err != nil {
-		log.Printf("Error opening connection to Discord: %v", err)
+		log.Errorf("Error opening connection to Discord: %v", err)
 	}
 
 	defer bot.session.Close()
@@ -125,11 +124,11 @@ func Start() {
 func readyHandler(session *discordgo.Session, ready *discordgo.Ready) {
 	user, err := session.User("@me")
 	if err != nil {
-		log.Printf("readyHandler user: %v", err)
+		log.Errorf("readyHandler user: %v", err)
 	}
 	guilds := session.State.Guilds
 
-	log.Printf("%s has started on %d server(s)\n", user.Username, len(guilds))
+	log.Infof("%s has started on %d server(s)", user.Username, len(guilds))
 
 	bot.UpdateListeningStatus("")
 }
@@ -180,6 +179,6 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 }
 
 func callCommand(fn func(commandParams), cp commandParams) {
-	log.Printf("Received command \"%s\"", cp.message.Content)
+	log.Debugf("Received command \"%s\"", cp.message.Content)
 	go fn(cp)
 }

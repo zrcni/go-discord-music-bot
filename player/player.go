@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
+	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/queue"
 	"github.com/zrcni/go-discord-music-bot/videoaudio"
 )
@@ -122,11 +122,11 @@ func (p *Player) Queue(track Track) {
 			ChannelID: track.ChannelID,
 		}
 		p.sendEvent(e)
-		log.Print(err)
+		log.Error(err)
 		return
 	}
 
-	log.Printf("\"%s\" added to queue", track.Title)
+	log.Infof("\"%s\" added to queue", track.Title)
 
 	e := Event{
 		Type:      QUEUE,
@@ -147,11 +147,11 @@ func (p *Player) Queue(track Track) {
 	// 		ChannelID: track.ChannelID,
 	// 	}
 	// 	p.sendEvent(e)
-	// 	log.Print(err)
+	// 	log.Error(err)
 	// 	return
 	// }
 
-	// log.Printf("\"%s\" added to queue", track.Title)
+	// log.Infof("\"%s\" added to queue", track.Title)
 
 	// e := Event{
 	// 	Type:      QUEUE,
@@ -168,7 +168,7 @@ func (p *Player) Queue(track Track) {
 
 // processQueue removes the first item from the queue and returns it
 func (p *Player) processQueue() {
-	log.Printf("queueing next track")
+	log.Debug("queueing next track")
 	if p.queue.Length() == 0 {
 		e := Event{
 			Type:      STOP,
@@ -177,12 +177,12 @@ func (p *Player) processQueue() {
 		}
 		p.sendEvent(e)
 		p.currentTrack = Track{}
-		log.Print("the queue is empty")
+		log.Debug("the queue is empty")
 		return
 	}
 
 	if p.isStreaming() {
-		log.Printf("already streaming")
+		log.Debug("already streaming")
 		return
 	}
 
@@ -197,7 +197,7 @@ func (p *Player) processQueue() {
 		go func(p *Player) {
 			err := p.prepareNextTrack()
 			if err != nil {
-				log.Print(err)
+				log.Error(err)
 			}
 		}(p)
 	}
@@ -208,11 +208,11 @@ func (p *Player) processQueue() {
 // play starts the process that streams the track
 func (p *Player) play(track Track) {
 	if !p.VoiceConnection.Ready {
-		log.Printf("voice connection is not ready")
+		log.Debug("voice connection is not ready")
 		return
 	}
 	// if p.IsPlaying() {
-	// 	log.Printf("already playing")
+	// 	log.Debug("already playing")
 	// 	return
 	// }
 
@@ -221,14 +221,20 @@ func (p *Player) play(track Track) {
 
 		err := p.startStream(track.Audio)
 		if err != nil {
-			log.Print(err)
+			log.Error(err)
 		}
 	} else {
 		// TODO: fix audio sometimes being nil.
 		// It happens when replacing track.
-		log.Printf("track.Audio is nil in: %v", track.Title)
-		p.queue.DeleteAt(0)
-		log.Printf("deleted: %v", track.Title)
+		log.Debugf("track.Audio is nil in: %v", track.Title)
+
+		ok := p.queue.DeleteAt(0)
+		if !ok {
+			log.Debugf("could not delete: %v", track.Title)
+			return
+		}
+
+		log.Debugf("deleted: %v", track.Title)
 	}
 
 	p.processQueue()
@@ -239,11 +245,11 @@ func (p *Player) startStream(source dca.OpusReader) error {
 	done := make(chan error)
 	p.stream = dca.NewStream(source, p.VoiceConnection, done)
 
-	log.Printf("Started streaming \"%s\"", p.currentTrack.Title)
+	log.Infof("Started streaming \"%s\"", p.currentTrack.Title)
 
 	err := <-done
 
-	log.Printf("Stopped streaming \"%s\"", p.currentTrack.Title)
+	log.Infof("Stopped streaming \"%s\"", p.currentTrack.Title)
 
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -264,7 +270,7 @@ func (p *Player) isStreaming() bool {
 
 	finished, err := p.stream.Finished()
 	if err != nil {
-		log.Println("player.IsStreaming:", err)
+		log.Errorf("player.IsStreaming:", err)
 		return false
 	}
 
@@ -272,7 +278,7 @@ func (p *Player) isStreaming() bool {
 }
 
 func (p *Player) prepareNextTrack() error {
-	log.Print("preparing next track")
+	log.Debug("preparing next track")
 
 	t, err := p.queue.GetAt(0)
 	if err != nil {
@@ -292,11 +298,11 @@ func (p *Player) prepareNextTrack() error {
 
 	es, err := videoaudio.ReadAudioFile(track.Filename)
 	if err != nil {
-		log.Printf("couldn't read audio file, removing track from queue: \"%s\"", track.Title)
+		log.Errorf("couldn't read audio file, removing track from queue: \"%s\"", track.Title)
 
 		ok := p.queue.DeleteAt(0)
 		if !ok {
-			log.Printf("Can't delete item. Queue length is %v", p.queue.Length())
+			log.Errorf("Can't delete item. Queue length is %v", p.queue.Length())
 		}
 		return err
 	}
@@ -314,15 +320,15 @@ func (p *Player) prepareNextTrack() error {
 
 	ok = p.queue.ReplaceAt(0, tr)
 	if !ok {
-		log.Printf("could not replace item at index %v, deleteting...", 0)
+		log.Debugf("could not replace item at index %v, deleteting...", 0)
 		ok = p.queue.DeleteAt(0)
 		if !ok {
-			log.Printf("Can't delete item. Queue length is %v", p.queue.Length())
+			log.Errorf("Can't delete item. Queue length is %v", p.queue.Length())
 		}
 		return errors.New("could not prepare track")
 	}
 
-	log.Print("next track prepared")
+	log.Debug("next track prepared")
 	return nil
 }
 

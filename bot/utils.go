@@ -3,7 +3,6 @@ package bot
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/rylio/ytdl"
+	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/player"
 	"github.com/zrcni/go-discord-music-bot/utils"
 	"github.com/zrcni/go-discord-music-bot/videoaudio"
@@ -65,7 +65,7 @@ func createFile(videoID string) (*os.File, error) {
 func downloadYoutube(url string, cp commandParams) (player.Track, error) {
 	videoInfo, err := youtube.GetMetadata(url)
 	if err != nil {
-		log.Printf("Couldn't get metadata for youtube video (%s)", url)
+		log.Errorf("Couldn't get metadata for youtube video (%s)", url)
 		return player.Track{}, err
 	}
 
@@ -79,22 +79,22 @@ func downloadYoutube(url string, cp commandParams) (player.Track, error) {
 	audioBuffer := &bytes.Buffer{}
 	err = youtube.Download(videoInfo, format, audioBuffer)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		return player.Track{}, err
 	}
-	log.Printf("downloaded \"%s\"", videoInfo.Title)
+	log.Debug("downloaded \"%s\"", videoInfo.Title)
 
 	// if queue is not empty: save audio data as buffer to file
 	// else: assign audio data as dca.EncodeSession pointer to the track
 	if bot.player.QueueLength() > 0 {
-		log.Print("SAVE TO FILE")
+		log.Debug("SAVE TO FILE")
 
 		timestampMs := time.Now().UnixNano() / 1000000
 		filename := fmt.Sprintf("%s-%v", videoInfo.ID, timestampMs)
 
 		err := videoaudio.SaveAudioToFile(filename, audioBuffer.Bytes())
 		if err != nil {
-			log.Print(err)
+			log.Error(err)
 			return player.Track{}, err
 		}
 
@@ -109,10 +109,10 @@ func downloadYoutube(url string, cp commandParams) (player.Track, error) {
 		}
 
 	} else {
-		log.Print("SAVE TO BUFFER")
+		log.Debug("SAVE TO BUFFER")
 		es, err := videoaudio.EncodeAudioToDCA(audioBuffer)
 		if err != nil {
-			log.Print(err)
+			log.Error(err)
 			return player.Track{}, err
 		}
 

@@ -3,31 +3,40 @@ package logger
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"github.com/zrcni/go-discord-music-bot/config"
 	"github.com/zrcni/go-discord-music-bot/utils"
 )
 
 // Setup sets up logger for writing to stdout and a file
 func Setup() {
-	l := logrus.New()
-	l.Formatter = &logrus.TextFormatter{}
-	logger := l.Writer()
+	logger := logrus.New()
+	logger.SetFormatter(&logrus.TextFormatter{})
+	logrus.SetLevel(getLogLevel())
 
+	logWriter := logger.Writer()
 	// timestampMs := time.Now().UnixNano() / 1000000
 	// path := fmt.Sprintf("log-%v", timestampMs)
 	// sessionFile := openFile(path)
 
-	fullLogFile := openFile("logs")
+	fullLogFile := getFile("logs")
 
-	mw := io.MultiWriter(logger, fullLogFile)
+	mw := io.MultiWriter(logWriter, fullLogFile)
 
-	log.SetOutput(mw)
+	logrus.SetOutput(mw)
 }
 
-func openFile(filename string) *os.File {
+func getLogLevel() logrus.Level {
+	if config.Config.Debug {
+		return logrus.DebugLevel
+	}
+
+	return logrus.InfoLevel
+}
+
+func getFile(filename string) *os.File {
 	basePath, err := utils.GetBasePath()
 	if err != nil {
 		panic(err)

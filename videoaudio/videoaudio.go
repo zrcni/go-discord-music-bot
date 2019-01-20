@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 
 	"github.com/jonas747/dca"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/utils"
 )
 
@@ -32,7 +32,7 @@ func TranscodeVideoToAudio(input io.Reader, output io.Writer) error {
 
 	stderrError := &bytes.Buffer{}
 	ffmpeg.Stderr = stderrError
-	// defer log.Println("Stderr output:", stderrError)
+	// defer log.Debugf("Stderr output:", stderrError)
 
 	err := ffmpeg.Start()
 	if err != nil {
@@ -41,7 +41,7 @@ func TranscodeVideoToAudio(input io.Reader, output io.Writer) error {
 
 	err = ffmpeg.Wait()
 	if err != nil {
-		log.Println("ffmpeg wait", err)
+		log.Errorf("ffmpeg wait %v", err)
 		return errors.Wrap(err, "ffmpeg.Wait")
 	}
 	return nil
@@ -55,10 +55,10 @@ func EncodeAudioToDCA(input io.Reader) (*dca.EncodeSession, error) {
 	options.BufferedFrames = 500
 	options.Application = "lowdelay"
 
-	log.Print("encoding from buffer")
+	log.Debug("encoding from buffer")
 	encodeSession, err := dca.EncodeMem(input, options)
 	if err != nil {
-		log.Printf("dca.EncodeMem: %v", err)
+		log.Errorf("dca.EncodeMem: %v", err)
 		return nil, err
 	}
 
@@ -73,10 +73,10 @@ func EncodeAudioFileToDCA(filePath string) (*dca.EncodeSession, error) {
 	options.BufferedFrames = 500
 	options.Application = "lowdelay"
 
-	log.Print("encoding file")
+	log.Debug("encoding file")
 	encodeSession, err := dca.EncodeFile(filePath, options)
 	if err != nil {
-		log.Printf("dca.EncodeMem: %v", err)
+		log.Errorf("dca.EncodeMem: %v", err)
 		return nil, err
 	}
 
@@ -91,7 +91,7 @@ func SaveAudioToFile(name string, b []byte) error {
 		return err
 	}
 
-	log.Printf("creating file to path: %s", filePath)
+	log.Debugf("creating file to path: %s", filePath)
 	err = ioutil.WriteFile(filePath, b, os.ModePerm)
 	if err != nil {
 		return err
@@ -115,7 +115,7 @@ func ReadAudioFile(name string) (*dca.EncodeSession, error) {
 
 	err = os.Remove(filePath)
 	if err != nil {
-		log.Printf("couldn't remove file from path: %s.\n%v", filePath, err)
+		log.Errorf("couldn't remove file from path: %s.\n%v", filePath, err)
 	}
 
 	return encodeSession, nil

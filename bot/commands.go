@@ -3,11 +3,11 @@ package bot
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/downloader"
 	"github.com/zrcni/go-discord-music-bot/spotify"
 )
@@ -20,10 +20,10 @@ func repeatCommand(cp commandParams) {
 
 	msg, err := bot.session.ChannelMessageSend(cp.message.ChannelID, str[1])
 	if err != nil {
-		log.Printf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
+		log.Errorf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
 		return
 	}
-	log.Printf("Message %v sent to channel %v", msg.ID, cp.message.ChannelID)
+	log.Debugf("Message %v sent to channel %v", msg.ID, cp.message.ChannelID)
 }
 
 func joinCommand(cp commandParams) {
@@ -37,7 +37,7 @@ func joinCommand(cp commandParams) {
 
 	channels, err := cp.session.GuildChannels(guild.ID)
 	if err != nil {
-		log.Printf("Could not get guild channels: %v", err)
+		log.Errorf("Could not get guild channels: %v", err)
 		return
 	}
 
@@ -49,21 +49,21 @@ func joinCommand(cp commandParams) {
 		message := fmt.Sprintf("Could not find voice channel by name \"%s\"", channelName)
 		_, err := bot.session.ChannelMessageSend(cp.message.ChannelID, message)
 		if err != nil {
-			log.Printf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
+			log.Errorf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
 		}
 		return
 	}
 
 	err = bot.joinChannel(cp.session, guild.ID, channel.ID)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		return
 	}
 
 	message := fmt.Sprintf("Joined \"%s\"", channelName)
 	_, err = bot.session.ChannelMessageSend(cp.message.ChannelID, message)
 	if err != nil {
-		log.Printf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
+		log.Errorf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
 	}
 }
 
@@ -74,7 +74,7 @@ func startCommand(cp commandParams) {
 
 	channels, err := cp.session.GuildChannels(guild.ID)
 	if err != nil {
-		log.Printf("Could not get guild channels: %v", err)
+		log.Errorf("Could not get guild channels: %v", err)
 		return
 	}
 
@@ -92,7 +92,7 @@ func stopCommand(cp commandParams) {
 	bot.UpdateListeningStatus("")
 
 	if bot.voiceConnection == nil {
-		log.Print(errors.New("voice connection doesn't exist"))
+		log.Error(errors.New("voice connection doesn't exist"))
 		return
 	}
 
@@ -102,7 +102,7 @@ func stopCommand(cp commandParams) {
 
 	err := bot.leaveChannel(cp.session, channelID)
 	if err != nil {
-		log.Print(err)
+		log.Error(err)
 		return
 	}
 }
@@ -131,7 +131,7 @@ func playCommand(cp commandParams) {
 	url := msg[1]
 
 	if !bot.isVoiceConnected() {
-		log.Print(errors.New("voice connection isn't active"))
+		log.Debug("voice connection isn't active")
 		return
 	}
 
@@ -142,7 +142,7 @@ func playCommand(cp commandParams) {
 	downloadable.Get = func() {
 		track, err := downloadYoutube(url, cp)
 		if err != nil {
-			log.Print(err)
+			log.Error(err)
 		}
 		go bot.player.Queue(track)
 	}
@@ -152,7 +152,7 @@ func playCommand(cp commandParams) {
 
 func pauseCommand(cp commandParams) {
 	if !bot.player.IsPlaying() {
-		log.Print("playback is already paused")
+		log.Debug("playback is already paused")
 		return
 	}
 	bot.player.SetPaused(true)
@@ -160,7 +160,7 @@ func pauseCommand(cp commandParams) {
 
 func continueCommand(cp commandParams) {
 	if bot.player.IsPlaying() {
-		log.Print("playback is active")
+		log.Debug("playback is active")
 		return
 	}
 

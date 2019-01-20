@@ -2,8 +2,8 @@ package bot
 
 import (
 	"fmt"
-	"log"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/player"
 )
 
@@ -33,7 +33,7 @@ func (b *Bot) handlePlayerEvent(e player.Event) {
 		return
 
 	default:
-		log.Printf("invalid player event: %+v", e)
+		log.Errorf("invalid player event: %+v", e)
 		return
 	}
 }
@@ -51,14 +51,14 @@ func (b *Bot) handlePlayEvent(e player.Event) {
 
 	_, err := b.session.ChannelMessageSendComplex(e.ChannelID, msg)
 	if err != nil {
-		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
+		log.Errorf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
 }
 
 func (b *Bot) handleQueueEvent(e player.Event) {
 	_, err := b.session.ChannelMessageSend(e.ChannelID, fmt.Sprintf("Queued: \"%s\"", e.Track.Title))
 	if err != nil {
-		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
+		log.Errorf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
 }
 
@@ -77,7 +77,7 @@ func (b *Bot) handleStopEvent(e player.Event) {
 	message := fmt.Sprintf(e.Message)
 	_, err := b.session.ChannelMessageSend(e.ChannelID, message)
 	if err != nil {
-		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
+		log.Errorf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
 }
 
@@ -85,6 +85,6 @@ func (b *Bot) handleErrorEvent(e player.Event) {
 	message := fmt.Sprintf("%s. Could not play %s.", e.Message, e.Track.Title)
 	_, err := b.session.ChannelMessageSend(e.ChannelID, message)
 	if err != nil {
-		log.Printf("Could not send a message to channel %v: %v", e.ChannelID, err)
+		log.Errorf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}
 }

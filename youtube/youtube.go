@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"log"
 	"regexp"
 
 	"github.com/rylio/ytdl"
+	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/videoaudio"
 )
 
@@ -29,7 +29,7 @@ func getVideoID(url string) string {
 func GetMetadata(url string) (ytdl.VideoInfo, error) {
 	videoInfo, err := ytdl.GetVideoInfo(url)
 	if err != nil {
-		log.Println(err)
+		log.Error(err)
 		return ytdl.VideoInfo{}, err
 	}
 	return *videoInfo, nil
@@ -43,7 +43,7 @@ func downloadVideo(writer io.Writer, videoInfo ytdl.VideoInfo) error {
 
 	format := videoInfo.Formats[0]
 
-	log.Printf("Format: %v", format)
+	log.Debugf("Format: %v", format)
 
 	if err := videoInfo.Download(format, writer); err != nil {
 		return err

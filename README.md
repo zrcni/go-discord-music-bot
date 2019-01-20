@@ -10,3 +10,7 @@
 Environment variables are put into the environment from <i>.env</i> file.
 
 ***
+
+### Configuration file - config.yaml
+
+debug: boolean

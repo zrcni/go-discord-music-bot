@@ -1,7 +1,7 @@
 package player
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 )
 
 // Event has the event info
@@ -55,5 +55,5 @@ func logEvent(e Event) {
 		return
 	}
 
-	log.Printf("%s event: [Message: \"%v\"]", eventName, e.Message)
+	log.Debugf("%s event: [Message: \"%v\"]", eventName, e.Message)
 }
