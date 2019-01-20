@@ -82,7 +82,7 @@ func downloadYoutube(url string, cp commandParams) (player.Track, error) {
 		log.Error(err)
 		return player.Track{}, err
 	}
-	log.Debug("downloaded \"%s\"", videoInfo.Title)
+	log.Debugf("downloaded \"%s\"", videoInfo.Title)
 
 	// if queue is not empty: save audio data as buffer to file
 	// else: assign audio data as dca.EncodeSession pointer to the track
