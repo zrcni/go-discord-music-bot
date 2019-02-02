@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rylio/ytdl"
 	log "github.com/sirupsen/logrus"
+	"github.com/zrcni/go-discord-music-bot/audiorepository"
 	"github.com/zrcni/go-discord-music-bot/player"
 	"github.com/zrcni/go-discord-music-bot/utils"
 	"github.com/zrcni/go-discord-music-bot/videoaudio"
@@ -62,15 +63,15 @@ func createFile(videoID string) (*os.File, error) {
 	return file, nil
 }
 
-func downloadYoutube(url string, cp commandParams) (player.Track, error) {
+func downloadYoutube(url string, cp commandParams) (*player.Track, error) {
 	videoInfo, err := youtube.GetMetadata(url)
 	if err != nil {
 		log.Errorf("Couldn't get metadata for youtube video (%s)", url)
-		return player.Track{}, err
+		return nil, err
 	}
 
 	thumbnailURL := videoInfo.GetThumbnailURL(ytdl.ThumbnailQualityDefault).String()
-	var track player.Track
+	var track *player.Track
 
 	// TODO: figure out optimal format
 	format := videoInfo.Formats[0]
@@ -80,27 +81,31 @@ func downloadYoutube(url string, cp commandParams) (player.Track, error) {
 	err = youtube.Download(videoInfo, format, audioBuffer)
 	if err != nil {
 		log.Error(err)
-		return player.Track{}, err
+		return nil, err
 	}
 	log.Debugf("downloaded \"%s\"", videoInfo.Title)
 
+	timestampMs := time.Now().UnixNano() / 1000000
+	uniqueID := fmt.Sprintf("%s-%v", videoInfo.ID, timestampMs)
 	// if queue is not empty: save audio data as buffer to file
 	// else: assign audio data as dca.EncodeSession pointer to the track
 	if bot.player.QueueLength() > 0 {
-		log.Debug("SAVE TO FILE")
-
-		timestampMs := time.Now().UnixNano() / 1000000
-		filename := fmt.Sprintf("%s-%v", videoInfo.ID, timestampMs)
-
-		err := videoaudio.SaveAudioToFile(filename, audioBuffer.Bytes())
+		err := videoaudio.SaveAudioToFile(uniqueID, audioBuffer.Bytes())
 		if err != nil {
 			log.Error(err)
-			return player.Track{}, err
+			return nil, err
 		}
 
-		track = player.Track{
+		filename := fmt.Sprintf("%s.mp3", uniqueID)
+
+		audiorepository.Add(&audiorepository.File{
+			ID:   uniqueID,
+			Name: filename,
+		})
+
+		track = &player.Track{
 			Title:        videoInfo.Title,
-			ID:           videoInfo.ID,
+			ID:           uniqueID,
 			Duration:     videoInfo.Duration,
 			ThumbnailURL: thumbnailURL,
 			URL:          url,
@@ -109,22 +114,19 @@ func downloadYoutube(url string, cp commandParams) (player.Track, error) {
 		}
 
 	} else {
-		log.Debug("SAVE TO BUFFER")
-		es, err := videoaudio.EncodeAudioToDCA(audioBuffer)
-		if err != nil {
-			log.Error(err)
-			return player.Track{}, err
-		}
+		audiorepository.Add(&audiorepository.Raw{
+			ID:  uniqueID,
+			Raw: audioBuffer.Bytes(),
+		})
 
 		// assign whole track, because encodeSession can't be reassigned
-		track = player.Track{
+		track = &player.Track{
 			Title:        videoInfo.Title,
-			ID:           videoInfo.ID,
+			ID:           uniqueID,
 			Duration:     videoInfo.Duration,
 			ThumbnailURL: thumbnailURL,
 			URL:          url,
 			ChannelID:    cp.message.ChannelID,
-			Audio:        es,
 		}
 	}
 

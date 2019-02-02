@@ -7,7 +7,7 @@ import (
 // Event has the event info
 type Event struct {
 	Type      event
-	Track     Track
+	Track     *Track
 	Message   string
 	ChannelID string
 }

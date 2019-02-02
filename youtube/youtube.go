@@ -51,45 +51,6 @@ func downloadVideo(writer io.Writer, videoInfo ytdl.VideoInfo) error {
 	return nil
 }
 
-// // Get downloads video from youtube and transcodes it to audio
-// func Get(url string) (player.Track, error) {
-// 	videoInfo, err := GetMetadata(url)
-// 	if err != nil {
-// 		return player.Track{}, err
-// 	}
-
-// 	videoData := &bytes.Buffer{}
-
-// 	err = downloadVideo(videoData, videoInfo)
-// 	if err != nil {
-// 		return player.Track{}, err
-// 	}
-
-// 	// Transcoding mp4 to mp3 before encoding the result to DCA,
-// 	// I have no idea what I'm doing so the sound quality is shit with mp4->DCA
-// 	audioData := &bytes.Buffer{}
-// 	err = videoaudio.TranscodeVideoToAudio(videoData, audioData)
-// 	if err != nil {
-// 		return player.Track{}, err
-// 	}
-
-// 	encodeSession, err := videoaudio.EncodeAudioToDCA(audioData)
-// 	if err != nil {
-// 		return player.Track{}, err
-// 	}
-
-// 	thumbnailURL := videoInfo.GetThumbnailURL(ytdl.ThumbnailQualityDefault).String()
-
-// 	return player.Track{
-// 		Audio:        encodeSession,
-// 		Title:        videoInfo.Title,
-// 		ID:           videoInfo.ID,
-// 		Duration:     videoInfo.Duration,
-// 		ThumbnailURL: thumbnailURL,
-// 		URL:          url,
-// 	}, nil
-// }
-
 // Download youtube video, transcode the video into audio to the writer
 func Download(videoInfo ytdl.VideoInfo, format ytdl.Format, writer io.Writer) error {
 	videoBuffer := &bytes.Buffer{}

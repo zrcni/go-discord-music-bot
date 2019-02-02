@@ -1,7 +1,7 @@
 package player
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
 	"io"
 	"time"
@@ -9,13 +9,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 	log "github.com/sirupsen/logrus"
-	"github.com/zrcni/go-discord-music-bot/queue"
+	"github.com/zrcni/go-discord-music-bot/audiorepository"
+	"github.com/zrcni/go-discord-music-bot/listqueue"
 	"github.com/zrcni/go-discord-music-bot/videoaudio"
 )
 
 // Track stores audio data and info
 type Track struct {
-	Audio        *dca.EncodeSession
 	Title        string
 	Duration     time.Duration
 	ID           string
@@ -29,22 +29,22 @@ type Track struct {
 // New returns a new player
 func New() Player {
 	return Player{
-		queue:  queue.New(20),
+		queue:  listqueue.New(20),
 		Events: make(chan Event),
 	}
 }
 
 // Player handler audio playback
 type Player struct {
-	currentTrack    Track
+	currentTrack    *Track
 	stream          *dca.StreamingSession
 	VoiceConnection *discordgo.VoiceConnection
-	queue           queue.Queue
+	queue           listqueue.Queue
 	Events          chan Event
 }
 
 // SetNowPlaying sets currently playing track
-func (p *Player) SetNowPlaying(track Track) {
+func (p *Player) SetNowPlaying(track *Track) {
 	e := Event{
 		Type:      PLAY,
 		Track:     track,
@@ -56,7 +56,7 @@ func (p *Player) SetNowPlaying(track Track) {
 }
 
 // GetNowPlaying gets currenly playing track
-func (p *Player) GetNowPlaying() Track {
+func (p *Player) GetNowPlaying() *Track {
 	return p.currentTrack
 }
 
@@ -82,7 +82,7 @@ func (p *Player) Stop() {
 		p.stream.SetPaused(true)
 	}
 	p.ClearQueue()
-	p.currentTrack = Track{}
+	p.currentTrack = nil
 }
 
 // SetPaused sets stream's the pause state
@@ -112,7 +112,7 @@ func (p *Player) ClearQueue() {
 }
 
 // Queue adds a track to the queue, returns ok to channel if track starts playing
-func (p *Player) Queue(track Track) {
+func (p *Player) Queue(track *Track) {
 	err := p.queue.Add(track)
 	if err != nil {
 		e := Event{
@@ -176,7 +176,7 @@ func (p *Player) processQueue() {
 			Message:   "Stopped playing - the queue is empty",
 		}
 		p.sendEvent(e)
-		p.currentTrack = Track{}
+		p.currentTrack = nil
 		log.Debug("the queue is empty")
 		return
 	}
@@ -186,27 +186,32 @@ func (p *Player) processQueue() {
 		return
 	}
 
-	track := p.queue.Shift()
-
-	t, ok := track.(Track)
+	track, err := p.queue.Process()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	log.Infof("TRACKKKKKK BOYYYY: %T - %+v", track, track)
+	t, ok := track.(*Track)
 	if !ok {
 		panic(fmt.Sprintf("track is not of type Track: %+v", t))
 	}
 
-	if p.queue.Length() > 1 {
-		go func(p *Player) {
-			err := p.prepareNextTrack()
-			if err != nil {
-				log.Error(err)
-			}
-		}(p)
-	}
+	// if p.queue.Length() > 1 {
+	// 	go func(p *Player) {
+	// 		err := p.prepareNextTrack()
+	// 		if err != nil {
+	// 			log.Error(err)
+	// 		}
+	// 	}(p)
+	// }
 
 	go p.play(t)
 }
 
 // play starts the process that streams the track
-func (p *Player) play(track Track) {
+func (p *Player) play(track *Track) {
+	log.Infof("QUEUEUE LISTTTTTTT: %+v", p.queue.GetList())
 	if !p.VoiceConnection.Ready {
 		log.Debug("voice connection is not ready")
 		return
@@ -216,25 +221,25 @@ func (p *Player) play(track Track) {
 	// 	return
 	// }
 
-	if track.Audio != nil {
-		p.SetNowPlaying(track)
+	audio, err := audiorepository.Get(track.ID)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	log.Infof("AUDIO: %v", len(audio))
+	buffer := bytes.NewReader(audio)
 
-		err := p.startStream(track.Audio)
-		if err != nil {
-			log.Error(err)
-		}
-	} else {
-		// TODO: fix audio sometimes being nil.
-		// It happens when replacing track.
-		log.Debugf("track.Audio is nil in: %v", track.Title)
+	es, err := videoaudio.EncodeAudioToDCA(buffer)
+	if err != nil {
+		log.Error(err)
+		return
+	}
 
-		ok := p.queue.DeleteAt(0)
-		if !ok {
-			log.Debugf("could not delete: %v", track.Title)
-			return
-		}
+	p.SetNowPlaying(track)
 
-		log.Debugf("deleted: %v", track.Title)
+	err = p.startStream(es)
+	if err != nil {
+		log.Error(err)
 	}
 
 	p.processQueue()
@@ -270,66 +275,11 @@ func (p *Player) isStreaming() bool {
 
 	finished, err := p.stream.Finished()
 	if err != nil {
-		log.Errorf("player.IsStreaming:", err)
+		log.Errorf("player.IsStreaming: %v", err)
 		return false
 	}
 
 	return !finished
-}
-
-func (p *Player) prepareNextTrack() error {
-	log.Debug("preparing next track")
-
-	t, err := p.queue.GetAt(0)
-	if err != nil {
-		return errors.New("queue is empty, can't prepare next track")
-	}
-
-	track, ok := t.(Track)
-	if !ok {
-		panic(fmt.Sprintf("t is not of type Track: %+v", t))
-	}
-
-	// If track doesn't have audio (it's taken from queue)
-	// probably dont need to check this because it's from the queue anyway?
-	if track.Audio != nil {
-		return errors.New("track already has audio data")
-	}
-
-	es, err := videoaudio.ReadAudioFile(track.Filename)
-	if err != nil {
-		log.Errorf("couldn't read audio file, removing track from queue: \"%s\"", track.Title)
-
-		ok := p.queue.DeleteAt(0)
-		if !ok {
-			log.Errorf("Can't delete item. Queue length is %v", p.queue.Length())
-		}
-		return err
-	}
-
-	// Copy track, because audio/encodeSession can't be reassigned
-	tr := Track{
-		Title:        track.Title,
-		Duration:     track.Duration,
-		ID:           track.ID,
-		ThumbnailURL: track.ThumbnailURL,
-		URL:          track.URL,
-		ChannelID:    track.ChannelID,
-		Audio:        es,
-	}
-
-	ok = p.queue.ReplaceAt(0, tr)
-	if !ok {
-		log.Debugf("could not replace item at index %v, deleteting...", 0)
-		ok = p.queue.DeleteAt(0)
-		if !ok {
-			log.Errorf("Can't delete item. Queue length is %v", p.queue.Length())
-		}
-		return errors.New("could not prepare track")
-	}
-
-	log.Debug("next track prepared")
-	return nil
 }
 
 // QueueLength return queue length
