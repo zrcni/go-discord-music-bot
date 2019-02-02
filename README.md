@@ -1,4 +1,35 @@
-## Discord Music Bot
+# Discord Music Bot
+
+## **Modules:**
+
+### **Bot**
+
+Bot is the main module. It receives commands from a Discord channel and executes them.
+
+### **Player**
+
+Player handles audio playback
+
+### **Downloader**
+
+Downloader handles downloading of audio using a queue
+
+### **Audio repository**
+
+Audio repository handles storing audio data temporarily in the form of bytes or a file
+
+### **Videoaudio**
+
+Videoaudio handles encoding and transcoding
+
+### **Youtube**
+
+Youtube basically wraps a Youtube library only for the needed functionality
+
+### **Spotify**
+
+Spotify accesses the Spotify API which is pretty much unused for the time being
+
 ***
 #### Environment variables:
 

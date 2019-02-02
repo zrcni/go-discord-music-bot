@@ -7,14 +7,10 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/zrcni/go-discord-music-bot/bot/commands"
 	"github.com/zrcni/go-discord-music-bot/config"
 	"github.com/zrcni/go-discord-music-bot/downloader"
 	"github.com/zrcni/go-discord-music-bot/player"
-)
-
-const (
-	commandPrefix = "!"
-	pausedPrefix  = "[Paused]"
 )
 
 var bot = &Bot{}
@@ -139,7 +135,7 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 		return
 	}
 
-	if !strings.HasPrefix(message.Content, commandPrefix) {
+	if !strings.HasPrefix(message.Content, commands.COMMAND_PREFIX) {
 		return
 	}
 
@@ -147,28 +143,28 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 	var command func(commandParams)
 
 	switch {
-	case messageHasCommand(message.Content, "join "):
+	case messageHasCommand(message.Content, commands.JOIN_CHANNEL):
 		command = joinCommand
 
-	case messageHasCommand(message.Content, "repeat "):
+	case messageHasCommand(message.Content, commands.REPEAT_TEXT):
 		command = repeatCommand
 
-	case messageHasCommand(message.Content, "start"):
+	case messageHasCommand(message.Content, commands.JOIN_DEFAULT_CHANNEL):
 		command = startCommand
 
-	case messageHasCommand(message.Content, "stop"):
+	case messageHasCommand(message.Content, commands.LEAVE_CHANNEL):
 		command = stopCommand
 
-	case messageHasCommand(message.Content, "playlist "):
+	case messageHasCommand(message.Content, commands.FIND_PLAYLIST):
 		command = playlistsCommand
 
-	case messageHasCommand(message.Content, "play "):
+	case messageHasCommand(message.Content, commands.PLAY_TRACK):
 		command = playCommand
 
-	case messageHasCommand(message.Content, "play"):
+	case messageHasCommand(message.Content, commands.UNPAUSE):
 		command = continueCommand
 
-	case messageHasCommand(message.Content, "pause"):
+	case messageHasCommand(message.Content, commands.PAUSE):
 		command = pauseCommand
 
 	default:

@@ -12,6 +12,7 @@ import (
 	"github.com/rylio/ytdl"
 	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/audiorepository"
+	"github.com/zrcni/go-discord-music-bot/bot/commands"
 	"github.com/zrcni/go-discord-music-bot/player"
 	"github.com/zrcni/go-discord-music-bot/utils"
 	"github.com/zrcni/go-discord-music-bot/videoaudio"
@@ -19,7 +20,7 @@ import (
 )
 
 func messageHasCommand(msgContent string, command string) bool {
-	commandWithPrefix := fmt.Sprintf("%s%s", commandPrefix, command)
+	commandWithPrefix := fmt.Sprintf("%s%s", commands.COMMAND_PREFIX, command)
 
 	if msgContent == commandWithPrefix {
 		return true

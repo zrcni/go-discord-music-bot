@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/zrcni/go-discord-music-bot/bot/commands"
 	"github.com/zrcni/go-discord-music-bot/player"
 )
 
@@ -67,7 +68,7 @@ func (b *Bot) handleUnpauseEvent(e player.Event) {
 }
 
 func (b *Bot) handlePauseEvent(e player.Event) {
-	status := fmt.Sprintf("%s %s", pausedPrefix, e.Track.Title)
+	status := fmt.Sprintf("%s %s", commands.PAUSED_PREFIX, e.Track.Title)
 	b.UpdateListeningStatus(status)
 }
 
