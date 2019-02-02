@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zrcni/go-discord-music-bot/downloader"
 	"github.com/zrcni/go-discord-music-bot/spotify"
+	"github.com/zrcni/go-discord-music-bot/youtube"
 )
 
 func repeatCommand(cp commandParams) {
@@ -129,6 +130,15 @@ func playCommand(cp commandParams) {
 		return
 	}
 	url := msg[1]
+
+	if !youtube.IsYoutubeURL(url) {
+		message := fmt.Sprintf("Not a valid Youtube URL: %s", url)
+		_, err := bot.session.ChannelMessageSend(cp.message.ChannelID, message)
+		if err != nil {
+			log.Errorf("Could not send a message to channel %v: %v", cp.message.ChannelID, err)
+		}
+		return
+	}
 
 	if !bot.isVoiceConnected() {
 		log.Debug("voice connection isn't active")

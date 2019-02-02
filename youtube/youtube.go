@@ -13,6 +13,11 @@ import (
 
 const youtubeURLMatcher = "^.*(?:(?:youtu\\.be\\/|v\\/|vi\\/|u\\/\\w\\/|embed\\/)|(?:(?:watch)?\\?v(?:i)?=|\\&v(?:i)?=))([^#\\&\\?]*).*"
 
+func IsYoutubeURL(url string) bool {
+	re := regexp.MustCompile(youtubeURLMatcher)
+	return re.MatchString(url)
+}
+
 func getVideoID(url string) string {
 	re := regexp.MustCompile(youtubeURLMatcher)
 	match := re.FindStringSubmatch(url)

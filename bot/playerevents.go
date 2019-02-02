@@ -75,8 +75,7 @@ func (b *Bot) handlePauseEvent(e player.Event) {
 func (b *Bot) handleStopEvent(e player.Event) {
 	b.UpdateListeningStatus("")
 
-	message := fmt.Sprintf(e.Message)
-	_, err := b.session.ChannelMessageSend(e.ChannelID, message)
+	_, err := b.session.ChannelMessageSend(e.ChannelID, e.Message)
 	if err != nil {
 		log.Errorf("Could not send a message to channel %v: %v", e.ChannelID, err)
 	}

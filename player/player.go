@@ -70,13 +70,16 @@ func (p *Player) IsPlaying() bool {
 
 // Stop stops streaming and clears the queue
 func (p *Player) Stop() {
-	e := Event{
-		Type:      STOP,
-		ChannelID: p.currentTrack.ChannelID,
-		Message:   "Stopped playing",
-	}
 
-	p.sendEvent(e)
+	if p.currentTrack != nil {
+		e := Event{
+			Type:      STOP,
+			ChannelID: p.currentTrack.ChannelID,
+			Message:   "Stopped playing",
+		}
+
+		p.sendEvent(e)
+	}
 
 	if p.stream != nil {
 		p.stream.SetPaused(true)
