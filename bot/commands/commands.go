@@ -28,3 +28,6 @@ const UNPAUSE = "play"
 
 // PAUSE pauses playback
 const PAUSE = "pause"
+
+// SOUND plays a sound clip from the soundboard
+const SOUND = "sound "

@@ -167,6 +167,9 @@ func commandHandler(session *discordgo.Session, message *discordgo.MessageCreate
 	case messageHasCommand(message.Content, commands.PAUSE):
 		command = pauseCommand
 
+	case messageHasCommand(message.Content, commands.SOUND):
+		command = soundCommand
+
 	default:
 		return
 	}

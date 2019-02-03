@@ -30,6 +30,10 @@ Youtube basically wraps a Youtube library only for the needed functionality
 
 Spotify accesses the Spotify API which is pretty much unused for the time being
 
+### **Soundboard**
+
+Soundboard binary (not in git) plays a sound file through speakers or writes the data to standard output. It's used for reading sound files that'll be streamed to Discord. Streaming not implemented for now.
+
 ***
 #### Environment variables:
 

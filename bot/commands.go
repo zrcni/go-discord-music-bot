@@ -3,18 +3,24 @@ package bot
 import (
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	log "github.com/sirupsen/logrus"
+	"github.com/zrcni/go-discord-music-bot/bot/commands"
 	"github.com/zrcni/go-discord-music-bot/downloader"
 	"github.com/zrcni/go-discord-music-bot/spotify"
 	"github.com/zrcni/go-discord-music-bot/youtube"
 )
 
+var GOPATH = os.Getenv("GOPATH")
+var soundboardBinaryPath = fmt.Sprintf("%s/src/github.com/zrcni/go-discord-music-bot/bin/soundboard", GOPATH)
+
 func repeatCommand(cp commandParams) {
-	str := strings.Split(cp.message.Content, "repeat ")
+	str := strings.Split(cp.message.Content, commands.REPEAT_TEXT)
 	if len(str) != 2 {
 		return
 	}
@@ -28,7 +34,7 @@ func repeatCommand(cp commandParams) {
 }
 
 func joinCommand(cp commandParams) {
-	msg := strings.Split(cp.message.Content, "join ")
+	msg := strings.Split(cp.message.Content, commands.JOIN_CHANNEL)
 	if len(msg) != 2 {
 		return
 	}
@@ -109,7 +115,7 @@ func stopCommand(cp commandParams) {
 }
 
 func playlistsCommand(cp commandParams) {
-	msg := strings.Split(cp.message.Content, "playlist ")
+	msg := strings.Split(cp.message.Content, commands.FIND_PLAYLIST)
 	if len(msg) != 2 {
 		return
 	}
@@ -125,7 +131,7 @@ func playlistsCommand(cp commandParams) {
 }
 
 func playCommand(cp commandParams) {
-	msg := strings.Split(cp.message.Content, "play ")
+	msg := strings.Split(cp.message.Content, commands.PLAY_TRACK)
 	if len(msg) != 2 || msg[1] == "" {
 		return
 	}
@@ -175,4 +181,27 @@ func continueCommand(cp commandParams) {
 	}
 
 	bot.player.SetPaused(false)
+}
+
+func soundCommand(cp commandParams) {
+	if bot.player.IsPlaying() {
+		log.Debug("player is active")
+		return
+	}
+
+	msg := strings.Split(cp.message.Content, commands.SOUND)
+	if len(msg) != 2 || msg[1] == "" {
+		return
+	}
+	soundName := msg[1]
+
+	cmd := exec.Command(soundboardBinaryPath, "write", soundName)
+
+	buf, err := cmd.Output()
+	if err != nil {
+		log.Error(err)
+	}
+
+	log.Printf("sound clip buffer length: %v", buf)
+	// TODO stream sound to discord
 }
